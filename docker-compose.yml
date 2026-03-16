@@ -1,0 +1,45 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: jobsearch
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  auth_service:
+    build: ./backend/auth_service
+    ports:
+      - "8001:8000"
+    env_file: .env
+
+  jobs_service:
+    build: ./backend/jobs_service
+    ports:
+      - "8002:8000"
+    env_file: .env
+
+  resume_service:
+    build: ./backend/resume_service
+    ports:
+      - "8003:8000"
+    env_file: .env
+
+  interview_service:
+    build: ./backend/interview_service
+    ports:
+      - "8004:8000"
+    env_file: .env
+
+  analytics_service:
+    build: ./backend/analytics_service
+    ports:
+      - "8005:8000"
+    env_file: .env
