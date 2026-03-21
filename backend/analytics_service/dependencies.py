@@ -1,32 +1,39 @@
 """
-Dependencies for analytics_service including database session.
+Dependencies for analytics_service including Firestore client.
 """
 import os
-from typing import Generator
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from typing import Optional
 from dotenv import load_dotenv
+from google.cloud.firestore_v1 import Client as FirestoreClient
 
-from .models import Base
+# Import config module from project root
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from config import get_firestore_client
 
 load_dotenv()
 
-# Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/jobsearch")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Firestore client (lazy initialization)
+_firestore_client: Optional[FirestoreClient] = None
 
 
-def get_db() -> Generator[Session, None, None]:
-    """Dependency to get database session."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_db() -> FirestoreClient:
+    """Dependency to get Firestore client."""
+    global _firestore_client
+    if _firestore_client is None:
+        _firestore_client = get_firestore_client()
+    return _firestore_client
 
 
 def init_db():
-    """Initialize database tables."""
-    Base.metadata.create_all(bind=engine)
+    """
+    Initialize Firestore database.
+
+    Note: Firestore is schemaless, so no table creation needed.
+    This function ensures Firebase is initialized.
+    """
+    try:
+        db = get_firestore_client()
+        print("✅ Firestore initialized successfully for analytics service")
+    except Exception as e:
+        print(f"⚠️  Firestore initialization warning: {e}")

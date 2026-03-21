@@ -24,9 +24,9 @@ class UserLogin(UserBase):
 
 class UserResponse(UserBase):
     """Schema for user response (excludes password)."""
-    id: int
+    id: str  # Firestore uses string document IDs
     full_name: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None  # Optional for Firestore SERVER_TIMESTAMP
 
     class Config:
         from_attributes = True
@@ -38,6 +38,15 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
 
 
+class UserInDB(UserBase):
+    """Schema for user stored in database (includes hashed password)."""
+    id: str
+    hashed_password: str
+    full_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
 class Token(BaseModel):
     """Schema for JWT token response."""
     access_token: str
@@ -46,13 +55,13 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     """Schema for decoded token data."""
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None  # Firestore uses string IDs
     email: Optional[str] = None
 
 
 class RegisterResponse(BaseModel):
     """Schema for registration response."""
-    user_id: int
+    user_id: str  # Firestore uses string IDs
     message: str = "User registered successfully"
 
 

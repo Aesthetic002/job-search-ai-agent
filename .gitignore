@@ -5,3 +5,14 @@ __pycache__/
 .DS_Store
 node_modules/
 .next/
+
+# Firebase credentials
+firebase-credentials.json
+*-firebase-adminsdk-*.json
+
+# Azure credentials (usually in .env, but just in case)
+azure-credentials.json
+
+# Uploaded files (if storing locally)
+uploads/
+temp/
