@@ -34,6 +34,6 @@ def init_db():
     """
     try:
         db = get_firestore_client()
-        print("✅ Firestore initialized successfully for analytics service")
+        print("[OK] Firestore initialized successfully for analytics service")
     except Exception as e:
-        print(f"⚠️  Firestore initialization warning: {e}")
+        print(f"[WARN] Firestore initialization warning: {e}")

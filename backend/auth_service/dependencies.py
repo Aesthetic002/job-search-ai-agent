@@ -111,16 +111,23 @@ def get_user_by_email(db: FirestoreClient, email: str) -> Optional[Dict[str, Any
     Returns:
         User data dict or None if not found
     """
-    users_ref = db.collection('users')
-    query = users_ref.where('email', '==', email).limit(1)
-    docs = query.stream()
+    from google.cloud.firestore_v1.base_query import FieldFilter
 
-    for doc in docs:
-        user_data = doc.to_dict()
-        user_data['id'] = doc.id
-        return user_data
+    try:
+        users_ref = db.collection('users')
+        query = users_ref.where(filter=FieldFilter('email', '==', email)).limit(1)
+        docs = list(query.stream())
 
-    return None
+        if docs:
+            doc = docs[0]
+            user_data = doc.to_dict()
+            user_data['id'] = doc.id
+            return user_data
+
+        return None
+    except Exception as e:
+        print(f"[ERROR] get_user_by_email: {e}")
+        return None
 
 
 def create_user_in_firestore(
@@ -246,10 +253,10 @@ def init_db():
     """
     try:
         db = get_firestore_client()
-        print("✅ Firestore initialized successfully")
+        print("[OK] Firestore initialized successfully")
 
         # Optionally create a test document to verify connection
         # db.collection('_test').document('init').set({'initialized': True})
 
     except Exception as e:
-        print(f"⚠️  Firestore initialization warning: {e}")
+        print(f"[WARN] Firestore initialization warning: {e}")

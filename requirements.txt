@@ -21,11 +21,12 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.2
 
-# LangChain and AI
-langchain==0.1.0
-langchain-openai==0.0.8
-langgraph==0.0.30
-openai==1.14.0
+# LangChain and AI (updated for compatibility)
+langchain>=0.1.20
+langchain-openai>=0.1.0
+langchain-community>=0.0.38
+langgraph>=0.0.50
+openai>=1.14.0
 
 # Background tasks
 celery==5.3.6

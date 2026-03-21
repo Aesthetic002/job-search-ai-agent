@@ -16,7 +16,7 @@ def init_firebase():
     try:
         # Check if already initialized
         firebase_admin.get_app()
-        print("✅ Firebase already initialized")
+        print("[OK] Firebase already initialized")
     except ValueError:
         # Initialize Firebase
         cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-credentials.json")
@@ -31,7 +31,7 @@ def init_firebase():
         firebase_admin.initialize_app(cred, {
             'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET")
         })
-        print("✅ Firebase initialized successfully")
+        print("[OK] Firebase initialized successfully")
 
 
 def get_firestore_client():
@@ -73,9 +73,9 @@ def get_azure_container_client(container_name: str = None):
         container_client = blob_service_client.get_container_client(container_name)
         if not container_client.exists():
             container_client.create_container()
-            print(f"✅ Created Azure container: {container_name}")
+            print(f"[OK] Created Azure container: {container_name}")
     except Exception as e:
-        print(f"⚠️  Container creation issue: {e}")
+        print(f"[WARN] Container creation issue: {e}")
 
     return blob_service_client.get_container_client(container_name)
 
@@ -206,17 +206,17 @@ if __name__ == "__main__":
         print("Testing Firebase...")
         init_firebase()
         db = get_firestore_client()
-        print("✅ Firestore connection successful")
+        print("[OK] Firestore connection successful")
     except Exception as e:
-        print(f"❌ Firebase error: {e}")
+        print(f"[FAIL] Firebase error: {e}")
 
     # Test Azure
     try:
         print("\nTesting Azure Blob Storage...")
         container = get_azure_container_client()
-        print(f"✅ Azure Blob Storage connection successful")
+        print(f"[OK] Azure Blob Storage connection successful")
         print(f"   Container: {container.container_name}")
     except Exception as e:
-        print(f"❌ Azure error: {e}")
+        print(f"[FAIL] Azure error: {e}")
 
     print("\n" + "="*50)
