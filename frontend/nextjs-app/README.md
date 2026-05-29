@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Job Search AI — Next.js Frontend Dashboard
 
-## Getting Started
+This directory houses the premium React dashboard for the Job Search AI Agent portal, built on Next.js 16 (App Router) with custom TypeScript definitions and custom Vanilla CSS.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🎨 Design Philosophy & UI Guidelines
+
+The dashboard is designed to feel highly premium, state-of-the-art, and professional. It aligns with the following product design rules:
+*   **Strict Light Mode:** Curated HSL-tailored colors (`bg`, `card`, `border`, `brand`, `success`, `warning`, `danger`) define the theme—completely avoiding plain browser defaults or dark mode styling.
+*   **No Placeholders or Generic Layouts:** Every page is populated with custom mock interfaces, interactive statuses, and detailed metric structures.
+*   **Zero Emojis:** Standardized, clean vector icons (via SVG paths mapped in `ui.tsx`) are used exclusively for clean aesthetic presentation.
+*   **Collapsible Sidebar:** Navigation collapses down to a compact 60px icon-only layout with hardware-accelerated CSS transition curves.
+*   **Loading States:** Built-in `<Skeleton />` loaders with a custom CSS shimmer keyframe ensure smooth content transitions.
+
+---
+
+## 📁 Key Dashboard Features
+
+1.  **Resume Onboarding Gate (`OnboardingPage`):**
+    *   Guards the application on initial visit. A full-screen drag-and-drop zone forces resume upload.
+    *   Saves the onboarded status inside the browser's `localStorage` to bypass future onboarding steps.
+2.  **Dashboard Hub (`DashboardPage`):**
+    *   Displays macro statistics (Application Counts, Scheduled Interviews, ATS Averages, and Success Rates).
+    *   Shows a visual SVG sparkline trend graph and a summary table of active application files.
+3.  **Job Recommendations & Search (`JobsFeedPage`):**
+    *   Browse matching positions in a dual-column layout (Listings on the left, full Job Details + description on the right).
+    *   Supports text search queries, source filters (LinkedIn, Naukri, Indeed), and instant application submissions.
+4.  **Drag-and-Drop Kanban Board (`KanbanPage`):**
+    *   A status tracker featuring five stages: *Wishlist*, *Applied*, *Interviewing*, *Offer*, and *Rejected*.
+    *   Implemented via local React state handlers, permitting card dragging, sorting, and stage transitions.
+5.  **Resume Analysis & ATS Gap Check (`ResumePage` & `ResumeDemoPage`):**
+    *   Paste job descriptions side-by-side with resumes to view keyword overlap scores out of 100.
+    *   Color-coded matched and missing skill badges with improvement warnings.
+6.  **AI Interview Practice simulator (`InterviewPage`):**
+    *   Select round types (Technical, HR, Behavioral) and target roles to trigger mock interview questions.
+    *   Track answer lengths, response logs, and evaluation metrics dynamically.
+
+---
+
+## 🛠️ Folder Structure
+
+```
+src/
+├── app/
+│   ├── globals.css      # Core CSS tokens, styles, and @keyframes (shimmer, spin)
+│   ├── layout.tsx       # Global HTML5 wrappers and SEO metadata
+│   └── page.tsx         # App shell coordinating Onboarding states and active routes
+├── components/
+│   ├── ui.tsx           # Shared components (Card, Badge, EmptyState, Skeleton, StatCard, Icon)
+│   ├── Sidebar.tsx      # Collapsible side navigation layout
+│   ├── OnboardingPage.tsx # Onboarding drag-and-drop wizard
+│   ├── DashboardPage.tsx # Summary statistics and lists
+│   ├── KanbanPage.tsx    # Drag-and-drop board
+│   ├── JobsFeedPage.tsx  # Dual-column job search client
+│   ├── ResumePage.tsx    # Resume uploads and ATS analysis
+│   ├── ResumeDemoPage.tsx # Step-by-step ATS checklist demo
+│   ├── InterviewPage.tsx # Interactive Q&A mock round simulator
+│   └── AboutPage.tsx     # Mission statements and tech-stack tables
+└── lib/
+    ├── api.ts           # Central fetch client (API stubs to real backend routes)
+    └── types.ts         # Global TypeScript interface specifications (Job, Application, User, etc.)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 💻 Development & Build Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+First, install dependencies:
+```bash
+npm install
+```
 
-## Learn More
+Run the local development server:
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-To learn more about Next.js, take a look at the following resources:
+Build the application for production deployment (runs compiler type checks and static pages generation):
+```bash
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run production build locally:
+```bash
+npm run start
+```
