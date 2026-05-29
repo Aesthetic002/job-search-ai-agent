@@ -1,5 +1,5 @@
 """
-Quick test script for LangGraph workflows and Celery tasks
+Quick test script for LangGraph workflows and Celery tasks (ASCII-safe for Windows)
 """
 import sys
 import os
@@ -16,11 +16,11 @@ def test_langgraph_workflow():
     try:
         from agent.langgraph_workflows import create_job_search_workflow
 
-        print("✅ Successfully imported LangGraph workflow")
+        print("[OK] Successfully imported LangGraph workflow")
 
         # Create workflow
         workflow = create_job_search_workflow()
-        print("✅ Workflow created successfully")
+        print("[OK] Workflow created successfully")
 
         # Test state
         initial_state = {
@@ -48,23 +48,23 @@ def test_langgraph_workflow():
             "next_stage": "job_search"
         }
 
-        print("\n📋 Initial State:")
+        print("\n[INFO] Initial State:")
         print(f"   User ID: {initial_state['user_id']}")
         print(f"   Desired Role: {initial_state['user_profile']['desired_role']}")
         print(f"   Skills: {', '.join(initial_state['user_profile']['skills'])}")
 
-        print("\n🚀 Running workflow...")
+        print("\n[RUN] Running workflow...")
         print("   (This may take a few seconds)\n")
 
         # Note: Workflow requires OpenAI API key to actually run
         # For now, just verify it compiles
-        print("✅ Workflow structure validated")
-        print("   ⚠️  Note: Full execution requires OpenAI API key in .env")
+        print("[OK] Workflow structure validated")
+        print("   [NOTE] Full execution requires OpenAI API key in .env")
 
         return True
 
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"[FAIL] Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -78,7 +78,7 @@ def test_celery_imports():
 
     try:
         import celery_worker
-        print("✅ Successfully imported celery_worker")
+        print("[OK] Successfully imported celery_worker")
 
         # List available tasks
         tasks = [
@@ -93,20 +93,20 @@ def test_celery_imports():
             'health_check'
         ]
 
-        print("\n📋 Available Celery Tasks:")
+        print("\n[INFO] Available Celery Tasks:")
         for task in tasks:
             if hasattr(celery_worker, task):
-                print(f"   ✅ {task}")
+                print(f"   [OK] {task}")
             else:
-                print(f"   ❌ {task} - NOT FOUND")
+                print(f"   [FAIL] {task} - NOT FOUND")
 
-        print("\n   ⚠️  Note: To execute tasks, start Celery worker:")
+        print("\n   [NOTE] To execute tasks, start Celery worker:")
         print("      celery -A celery_worker worker --loglevel=info")
 
         return True
 
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"[FAIL] Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -131,9 +131,9 @@ def test_agent_imports():
         try:
             module = __import__(module_path, fromlist=[agent_name])
             agent_class = getattr(module, agent_name)
-            print(f"✅ {agent_name} imported successfully")
+            print(f"[OK] {agent_name} imported successfully")
         except Exception as e:
-            print(f"❌ {agent_name} import failed: {str(e)}")
+            print(f"[FAIL] {agent_name} import failed: {str(e)}")
             all_success = False
 
     return all_success
@@ -141,7 +141,7 @@ def test_agent_imports():
 
 if __name__ == "__main__":
     print("\n" + "="*50)
-    print("🧪 Job Search AI Agent - Component Tests")
+    print("[TEST] Job Search AI Agent - Component Tests")
     print("="*50)
 
     results = []
@@ -161,18 +161,18 @@ if __name__ == "__main__":
     print("="*50 + "\n")
 
     for test_name, success in results:
-        status = "✅ PASS" if success else "❌ FAIL"
+        status = "[PASS]" if success else "[FAIL]"
         print(f"{status} - {test_name}")
 
     all_passed = all(success for _, success in results)
 
     if all_passed:
-        print("\n🎉 All component tests passed!")
+        print("\n[PASS] All component tests passed!")
         print("\nNext steps:")
         print("1. Start infrastructure: docker-compose up -d postgres redis")
         print("2. Start auth service: python -m uvicorn backend.auth_service.main:app --port 8001")
         print("3. Start analytics service: python -m uvicorn backend.analytics_service.main:app --port 8005")
         print("4. Run API tests: bash test_services.sh")
     else:
-        print("\n⚠️  Some tests failed. Please check the errors above.")
+        print("\n[FAIL] Some tests failed. Please check the errors above.")
         sys.exit(1)
