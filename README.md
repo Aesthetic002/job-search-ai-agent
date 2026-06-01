@@ -41,17 +41,20 @@ An AI-powered, microservices-based platform designed to automate and streamline 
 *   Python (3.9+)
 *   Docker & Docker Compose
 *   Firebase account service credentials (`firebase-credentials.json`)
-*   Azure Connection Strings
+*   Azure Storage Account (required for resume file uploads)
+*   At least one free-tier LLM API key (Groq, Gemini, OpenRouter, NVIDIA NIM, or Cohere)
+
+For detailed guide on credentials, read [CREDENTIALS_SETUP.md](file:///c:/Coding%20n%20stuff/capabl/job-search-ai-agent/CREDENTIALS_SETUP.md).
 
 ### Step 1: Environment Variables
 Copy `.env.example` to `.env` in the root folder:
 ```bash
 cp .env.example .env
 ```
-Fill in the credentials, including:
-*   `DATABASE_URL` / Firestore setup parameters
-*   `AZURE_CONNECTION_STRING`
-*   `OPENAI_API_KEY` (for LangGraph agents)
+Fill in the credentials in `.env`, including:
+*   `FIREBASE_PROJECT_ID` / `FIREBASE_STORAGE_BUCKET`
+*   `AZURE_STORAGE_CONNECTION_STRING`
+*   `GROQ_API_KEY` / `GEMINI_API_KEY` (The agent uses a 5-provider fallback system)
 *   `JWT_SECRET`
 
 Place your service account JSON file in the root directory named as:
@@ -64,13 +67,16 @@ docker-compose up -d
 ```
 
 ### Step 3: Run the Backend Microservices
-Launch the microservice servers using `uvicorn`. For example:
+Launch the microservice servers using `uvicorn` (or the `test_services.sh` script):
 ```bash
-# Auth Service
+# Auth Service (Port 8001)
 python -m uvicorn backend.auth_service.main:app --port 8001
 
-# Resume Service
+# Resume Service (Port 8003)
 python -m uvicorn backend.resume_service.main:app --port 8003
+
+# Interview Service (Port 8004)
+python -m uvicorn backend.interview_service.main:app --port 8004
 ```
 
 ### Step 4: Start the Frontend Application
@@ -82,3 +88,9 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the portal.
+
+---
+
+## 📈 Remaining Project Scope
+To see what tasks are pending and the current roadmap, check [remaining_work.md](file:///c:/Coding%20n%20stuff/capabl/job-search-ai-agent/remaining_work.md).
+

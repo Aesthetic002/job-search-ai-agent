@@ -82,8 +82,12 @@ AZURE_STORAGE_CONTAINER=resumes
 # Redis (for Celery broker and cache)
 REDIS_URL=redis://localhost:6379/0
 
-# OpenAI API Key (for LangGraph agents)
-OPENAI_API_KEY=your-openai-api-key
+# LLM API Keys (Unified Fallback Chain)
+GROQ_API_KEY=your-groq-api-key
+GEMINI_API_KEY=your-gemini-api-key
+OPENROUTER_API_KEY=your-openrouter-api-key
+NVIDIA_API_KEY=your-nvidia-api-key
+COHERE_API_KEY=your-cohere-api-key
 
 # External Job APIs
 NAUKRI_API_KEY=your-naukri-api-key
