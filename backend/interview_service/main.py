@@ -1,26 +1,47 @@
 """
 Interview Service (Port 8004)
-FastAPI microservice for generating AI-powered mock interview questions.
-Uses Groq (LLaMA 3.3 70B) to tailor questions based on the candidate's resume and target role.
+FastAPI microservice for AI-powered mock interviews.
+
+Endpoints:
+  POST /interview/generate  — Generate tailored interview questions
+  POST /interview/evaluate  — Evaluate a candidate's answer with AI scoring
+  GET  /interview/categories — List question categories and difficulty levels
+  GET  /interview/health    — Health check
+
+Powered by Groq (LLaMA 3.3 70B) via LangChain.
 """
 import os
 import sys
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Fix import paths
+# Fix import paths so agent/ modules are importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from agent.interview_evaluator import evaluate_answer_to_dict
+
+
 
 app = FastAPI(
     title="Interview Service",
-    description="AI-powered mock interview question generator",
-    version="1.0.0"
+    description="AI-powered mock interview question generator and answer evaluator.",
+    version="2.0.0"
+)
+
+# CORS — allow Next.js frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000")],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ==================== PYDANTIC SCHEMAS ====================
@@ -53,6 +74,21 @@ class GenerateInterviewRequest(BaseModel):
     resume_summary: str = Field(..., description="Raw resume text or structured resume summary")
     job_description: Optional[str] = Field(None, description="Job description (optional but recommended)")
     num_questions: Optional[int] = Field(8, ge=3, le=15, description="Number of questions to generate (3-15)")
+
+
+class EvaluateAnswerRequest(BaseModel):
+    """Request model for evaluating a candidate's interview answer."""
+    question: str = Field(..., description="The interview question that was asked")
+    candidate_answer: str = Field(..., min_length=10, description="The candidate's answer text")
+    job_title: str = Field(..., description="Target job title e.g. 'Backend Engineer'")
+    category: Optional[str] = Field(
+        "General",
+        description="Question category: 'Technical', 'Behavioral', 'Situational', 'Role-Specific', or 'General'"
+    )
+    expected_topics: Optional[List[str]] = Field(
+        default_factory=list,
+        description="Key topics the answer should cover (from the question generator's expected_topics field)"
+    )
 
 
 # ==================== LLM ENGINE ====================
@@ -102,7 +138,27 @@ def get_groq_llm() -> ChatGroq:
 
 @app.get("/")
 def root():
-    return {"message": "Interview Service Running", "version": "1.0.0"}
+    return {
+        "message": "Interview Service Running",
+        "version": "2.0.0",
+        "endpoints": {
+            "generate": "POST /interview/generate",
+            "evaluate": "POST /interview/evaluate",
+            "categories": "GET /interview/categories",
+            "health": "GET /interview/health",
+        }
+    }
+
+
+@app.get("/interview/health")
+def health_check():
+    """Health check — verifies the service is running and GROQ_API_KEY is configured."""
+    has_key = bool(os.getenv("GROQ_API_KEY"))
+    return {
+        "status": "healthy" if has_key else "degraded",
+        "groq_api_key_configured": has_key,
+        "model": "llama-3.3-70b-versatile",
+    }
 
 
 @app.post("/interview/generate", response_model=InterviewQuestionBank)
@@ -131,6 +187,47 @@ async def generate_interview_questions(request: GenerateInterviewRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Interview question generation failed: {str(e)}"
         )
+
+
+@app.post("/interview/evaluate")
+async def evaluate_interview_answer(request: EvaluateAnswerRequest):
+    """
+    Evaluate a candidate's answer to a mock interview question using AI.
+
+    - Scores the answer from 0–100 with a 'Excellent / Good / Average / Needs Improvement' verdict.
+    - Identifies specific strengths and actionable improvement areas.
+    - Flags any expected topics/concepts that were missed.
+    - Provides a concise ideal answer summary for comparison.
+    - For Behavioral questions: checks STAR method compliance (Situation, Task, Action, Result).
+    - Gives feedback on communication quality and answer structure.
+    """
+    try:
+        evaluation = evaluate_answer_to_dict(
+            question=request.question,
+            candidate_answer=request.candidate_answer,
+            job_title=request.job_title,
+            category=request.category or "General",
+            expected_topics=request.expected_topics or [],
+        )
+    except RuntimeError as e:
+        # Missing API key
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Answer evaluation failed: {str(e)}"
+        )
+
+    return {
+        "message": "Answer evaluated successfully",
+        "job_title": request.job_title,
+        "question": request.question,
+        "category": request.category,
+        "evaluation": evaluation,
+    }
 
 
 @app.get("/interview/categories")
