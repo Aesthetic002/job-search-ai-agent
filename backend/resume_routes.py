@@ -1,12 +1,13 @@
 """
 Resume upload and management API endpoints.
 Handles file uploads to Azure Blob Storage and stores metadata in Firestore.
+Includes AI-powered resume analysis and ATS scoring using Groq LLaMA 3.3 70B.
 """
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Path
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, Path, Body
 from google.cloud.firestore_v1 import Client as FirestoreClient
 from google.cloud.firestore import SERVER_TIMESTAMP
-from typing import List, Dict, Any
-from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field
 
 # Import services
 import sys
@@ -15,7 +16,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.resume_file_service import ResumeFileService, upload_and_parse_resume
 from backend.auth_service.dependencies import get_db, get_current_user
 
+# Import AI modules
+from agent.resume_parser import parse_resume_to_dict
+from agent.ats_scoring import score_resume_to_dict
+
 router = APIRouter(prefix="/resumes", tags=["Resumes"])
+
+
+class ATSScoreRequest(BaseModel):
+    """Request body for ATS scoring endpoint."""
+    job_description: str = Field(..., min_length=50, description="Full job description text to score the resume against")
 
 
 class ResumeMetadata(BaseModel):
@@ -282,4 +292,141 @@ async def reparse_resume(
         "message": "Resume reparsed successfully",
         "resume_id": resume_id,
         "parsed_text_length": len(parsed_text)
+    }
+
+
+@router.post("/{resume_id}/analyze")
+async def analyze_resume(
+    resume_id: str = Path(..., description="Resume ID"),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: FirestoreClient = Depends(get_db)
+):
+    """
+    AI-powered structured analysis of a resume.
+
+    - Fetches raw parsed text from Firestore.
+    - Uses Groq LLaMA 3.3 70B to extract Contact, Education, Experience, and Skills.
+    - Saves structured JSON back to the Firestore document under 'structured_data'.
+    - Returns the structured resume data.
+    """
+    user_id = current_user['id']
+
+    # Fetch resume from Firestore
+    resume_ref = db.collection('resumes').document(resume_id)
+    resume_doc = resume_ref.get()
+
+    if not resume_doc.exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume not found"
+        )
+
+    resume_data = resume_doc.to_dict()
+
+    # Ownership check
+    if resume_data.get('user_id') != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this resume"
+        )
+
+    raw_text = resume_data.get('parsed_text', '')
+    if not raw_text:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Resume has no parsed text. Please upload and parse the resume first."
+        )
+
+    # Run AI structured extraction
+    try:
+        structured_data = parse_resume_to_dict(raw_text)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI resume analysis failed: {str(e)}"
+        )
+
+    # Save structured data back to Firestore
+    resume_ref.update({
+        'structured_data': structured_data,
+        'analyzed_at': SERVER_TIMESTAMP,
+        'updated_at': SERVER_TIMESTAMP
+    })
+
+    return {
+        "message": "Resume analyzed successfully",
+        "resume_id": resume_id,
+        "structured_data": structured_data
+    }
+
+
+@router.post("/{resume_id}/score")
+async def score_resume(
+    resume_id: str = Path(..., description="Resume ID"),
+    body: ATSScoreRequest = Body(...),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: FirestoreClient = Depends(get_db)
+):
+    """
+    ATS compatibility scoring of a resume against a specific job description.
+
+    - Accepts a job description in the request body.
+    - Fetches the resume's raw text from Firestore.
+    - Uses Groq LLaMA 3.3 70B to produce a detailed ATS report:
+        - Overall score (0-100)
+        - Keyword matches and missing keywords
+        - Experience relevance summary
+        - Formatting feedback
+        - Top actionable recommendations
+    - Saves the ATS report to Firestore.
+    - Returns the full ATS score report.
+    """
+    user_id = current_user['id']
+
+    # Fetch resume from Firestore
+    resume_ref = db.collection('resumes').document(resume_id)
+    resume_doc = resume_ref.get()
+
+    if not resume_doc.exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume not found"
+        )
+
+    resume_data = resume_doc.to_dict()
+
+    # Ownership check
+    if resume_data.get('user_id') != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this resume"
+        )
+
+    raw_text = resume_data.get('parsed_text', '')
+    if not raw_text:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Resume has no parsed text. Please upload and parse the resume first."
+        )
+
+    # Run ATS scoring
+    try:
+        ats_report = score_resume_to_dict(raw_text, body.job_description)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ATS scoring failed: {str(e)}"
+        )
+
+    # Optionally persist the last ATS report in Firestore
+    resume_ref.update({
+        'last_ats_report': ats_report,
+        'last_ats_score': ats_report.get('overall_score'),
+        'updated_at': SERVER_TIMESTAMP
+    })
+
+    return {
+        "message": "ATS scoring completed",
+        "resume_id": resume_id,
+        "ats_report": ats_report
     }
