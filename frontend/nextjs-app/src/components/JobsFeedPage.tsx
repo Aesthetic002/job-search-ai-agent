@@ -1,22 +1,40 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { COLORS, Icon, Card, Badge, EmptyState, Skeleton } from "./ui";
 import { searchJobs, syncJobSources } from "@/lib/api";
-import type { Job, JobSource } from "@/lib/types";
+import type { Job } from "@/lib/types";
 
-const SOURCES: { value: string; label: string }[] = [
+// ─── Filter option lists ──────────────────────────────────────────────────────
+
+const SOURCES = [
   { value: "", label: "All Sources" },
   { value: "linkedin", label: "LinkedIn" },
   { value: "naukri", label: "Naukri" },
   { value: "indeed", label: "Indeed" },
 ];
 
+const WORK_MODES = [
+  { value: "any", label: "Any Mode" },
+  { value: "remote", label: "Remote / WFH" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "onsite", label: "On-site" },
+];
+
+const NOTICE_PERIODS = [
+  { value: "any", label: "Any Notice" },
+  { value: "immediate", label: "Immediate" },
+  { value: "15days", label: "≤ 15 Days" },
+  { value: "30days", label: "≤ 30 Days" },
+  { value: "60days", label: "≤ 60 Days" },
+  { value: "90days", label: "≤ 90 Days" },
+];
+
+// ─── Utility helpers ──────────────────────────────────────────────────────────
+
 function sourceLabel(src: string) {
-  if (src === "linkedin") return "LinkedIn";
-  if (src === "naukri") return "Naukri";
-  if (src === "indeed") return "Indeed";
-  return src;
+  const map: Record<string, string> = { linkedin: "LinkedIn", naukri: "Naukri", indeed: "Indeed" };
+  return map[src] ?? src;
 }
 
 function matchColor(score: number) {
@@ -29,7 +47,25 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+const INPUT_STYLE: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: 6,
+  border: `1px solid ${COLORS.border}`,
+  fontSize: 13,
+  color: COLORS.text,
+  background: COLORS.bg,
+  outline: "none",
+};
+
+const SELECT_STYLE: React.CSSProperties = {
+  ...INPUT_STYLE,
+  cursor: "pointer",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export const JobsFeedPage = () => {
+  // Core search state
   const [query, setQuery] = useState("");
   const [source, setSource] = useState("");
   const [location, setLocation] = useState("");
@@ -39,17 +75,32 @@ export const JobsFeedPage = () => {
   const [searched, setSearched] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
+  // Indian-specific filters
+  const [workMode, setWorkMode] = useState("any");
+  const [noticePeriod, setNoticePeriod] = useState("any");
+  const [minSalaryLpa, setMinSalaryLpa] = useState("");
+  const [maxSalaryLpa, setMaxSalaryLpa] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
   const doSearch = useCallback(async () => {
     setLoading(true);
     setSearched(true);
     try {
-      const results = await searchJobs({ query, source, location });
+      const results = await searchJobs({
+        query,
+        source,
+        location,
+        workMode,
+        noticePeriod,
+        minSalaryLpa: minSalaryLpa ? parseFloat(minSalaryLpa) : undefined,
+        maxSalaryLpa: maxSalaryLpa ? parseFloat(maxSalaryLpa) : undefined,
+      });
       setJobs(results);
       setSelectedJob(results[0] ?? null);
     } finally {
       setLoading(false);
     }
-  }, [query, source, location]);
+  }, [query, source, location, workMode, noticePeriod, minSalaryLpa, maxSalaryLpa]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -65,6 +116,9 @@ export const JobsFeedPage = () => {
     if (e.key === "Enter") doSearch();
   };
 
+  const hasActiveFilters =
+    workMode !== "any" || noticePeriod !== "any" || minSalaryLpa !== "" || maxSalaryLpa !== "";
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: COLORS.bg, minHeight: "100vh" }}>
       {/* Header */}
@@ -72,24 +126,17 @@ export const JobsFeedPage = () => {
         <div>
           <h1 style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>Jobs Feed</h1>
           <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "4px 0 0" }}>
-            Search and browse jobs from all connected sources
+            Search Naukri, Indeed &amp; LinkedIn — results cached for 30 minutes
           </p>
         </div>
         <button
           onClick={handleSync}
           disabled={syncing}
           style={{
-            padding: "7px 14px",
-            borderRadius: 6,
-            border: `1px solid ${COLORS.border}`,
-            background: COLORS.card,
-            fontSize: 13,
-            color: COLORS.textMuted,
-            cursor: syncing ? "default" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            opacity: syncing ? 0.7 : 1,
+            padding: "7px 14px", borderRadius: 6, border: `1px solid ${COLORS.border}`,
+            background: COLORS.card, fontSize: 13, color: COLORS.textMuted,
+            cursor: syncing ? "default" : "pointer", display: "flex", alignItems: "center",
+            gap: 6, opacity: syncing ? 0.7 : 1,
           }}
         >
           <Icon name="refresh-cw" size={13} color={COLORS.textMuted}
@@ -101,90 +148,64 @@ export const JobsFeedPage = () => {
       {/* Search bar */}
       <div style={{ padding: "16px 28px 0" }}>
         <Card style={{ padding: "14px 16px" }}>
+          {/* Primary search row */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {/* Query */}
             <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
-              <Icon
-                name="search"
-                size={14}
-                color={COLORS.textMuted}
-                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}
-              />
+              <Icon name="search" size={14} color={COLORS.textMuted}
+                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search by title, skill, or company…"
-                style={{
-                  width: "100%",
-                  padding: "8px 12px 8px 32px",
-                  borderRadius: 6,
-                  border: `1px solid ${COLORS.border}`,
-                  fontSize: 13,
-                  color: COLORS.text,
-                  background: COLORS.bg,
-                  outline: "none",
-                }}
+                style={{ ...INPUT_STYLE, width: "100%", paddingLeft: 32 }}
               />
             </div>
+
+            {/* Location */}
             <div style={{ position: "relative" }}>
-              <Icon
-                name="globe"
-                size={14}
-                color={COLORS.textMuted}
-                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
-              />
+              <Icon name="map-pin" size={14} color={COLORS.textMuted}
+                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
               <input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Location"
-                style={{
-                  padding: "8px 12px 8px 32px",
-                  borderRadius: 6,
-                  border: `1px solid ${COLORS.border}`,
-                  fontSize: 13,
-                  color: COLORS.text,
-                  background: COLORS.bg,
-                  outline: "none",
-                  width: 160,
-                }}
+                placeholder="City or India"
+                style={{ ...INPUT_STYLE, paddingLeft: 32, width: 160 }}
               />
             </div>
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
+
+            {/* Source */}
+            <select value={source} onChange={(e) => setSource(e.target.value)} style={SELECT_STYLE}>
+              {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+
+            {/* Filter toggle */}
+            <button
+              onClick={() => setShowFilters((v) => !v)}
               style={{
-                padding: "8px 12px",
-                borderRadius: 6,
-                border: `1px solid ${COLORS.border}`,
-                fontSize: 13,
-                color: COLORS.text,
-                background: COLORS.bg,
-                outline: "none",
-                cursor: "pointer",
+                ...SELECT_STYLE,
+                display: "flex", alignItems: "center", gap: 5,
+                background: hasActiveFilters ? COLORS.brandLight : COLORS.bg,
+                color: hasActiveFilters ? COLORS.brand : COLORS.textMuted,
+                borderColor: hasActiveFilters ? COLORS.brand : COLORS.border,
               }}
             >
-              {SOURCES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
+              <Icon name="sliders-horizontal" size={13} color={hasActiveFilters ? COLORS.brand : COLORS.textMuted} />
+              Filters{hasActiveFilters ? " ●" : ""}
+            </button>
+
+            {/* Search button */}
             <button
               onClick={doSearch}
               disabled={loading}
               style={{
-                padding: "8px 20px",
-                borderRadius: 6,
-                border: "none",
-                background: COLORS.brand,
-                fontSize: 13,
-                color: "#fff",
-                fontWeight: 500,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
+                padding: "8px 20px", borderRadius: 6, border: "none",
+                background: COLORS.brand, fontSize: 13, color: "#fff", fontWeight: 500,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
                 opacity: loading ? 0.7 : 1,
               }}
             >
@@ -192,6 +213,74 @@ export const JobsFeedPage = () => {
               Search
             </button>
           </div>
+
+          {/* ── Indian-specific advanced filters ── */}
+          {showFilters && (
+            <div style={{
+              marginTop: 12, paddingTop: 12,
+              borderTop: `1px solid ${COLORS.borderLight}`,
+              display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center",
+            }}>
+              {/* Work Mode */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <label style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>WORK MODE</label>
+                <select value={workMode} onChange={(e) => setWorkMode(e.target.value)} style={SELECT_STYLE}>
+                  {WORK_MODES.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
+                </select>
+              </div>
+
+              {/* Notice Period */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <label style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>NOTICE PERIOD</label>
+                <select value={noticePeriod} onChange={(e) => setNoticePeriod(e.target.value)} style={SELECT_STYLE}>
+                  {NOTICE_PERIODS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
+                </select>
+              </div>
+
+              {/* Salary LPA Range */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <label style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 500 }}>SALARY (LPA)</label>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    value={minSalaryLpa}
+                    onChange={(e) => setMinSalaryLpa(e.target.value)}
+                    placeholder="Min"
+                    min={0}
+                    style={{ ...INPUT_STYLE, width: 72 }}
+                  />
+                  <span style={{ fontSize: 12, color: COLORS.textMuted }}>–</span>
+                  <input
+                    type="number"
+                    value={maxSalaryLpa}
+                    onChange={(e) => setMaxSalaryLpa(e.target.value)}
+                    placeholder="Max"
+                    min={0}
+                    style={{ ...INPUT_STYLE, width: 72 }}
+                  />
+                </div>
+              </div>
+
+              {/* Clear filters */}
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    setWorkMode("any");
+                    setNoticePeriod("any");
+                    setMinSalaryLpa("");
+                    setMaxSalaryLpa("");
+                  }}
+                  style={{
+                    alignSelf: "flex-end", padding: "8px 12px", borderRadius: 6,
+                    border: `1px solid ${COLORS.border}`, background: "transparent",
+                    fontSize: 12, color: COLORS.textMuted, cursor: "pointer",
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
         </Card>
       </div>
 
@@ -216,28 +305,20 @@ export const JobsFeedPage = () => {
             <EmptyState
               icon="search"
               title="Search for jobs"
-              description="Enter a job title, skill, or company name to find matching positions from all your connected sources."
+              description="Enter a title, skill, or company. Use filters to narrow by salary (LPA), work mode, or notice period."
             />
           ) : jobs.length === 0 ? (
             <EmptyState
               icon="briefcase"
               title="No results found"
-              description="Try adjusting your search query or sync your job sources to get fresh listings."
+              description="Try adjusting your search or sync sources to get fresh listings."
               action={
                 <button
                   onClick={handleSync}
                   style={{
-                    padding: "8px 18px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: COLORS.brand,
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
+                    padding: "8px 18px", borderRadius: 6, border: "none",
+                    background: COLORS.brand, color: "#fff", fontSize: 13,
+                    fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
                   }}
                 >
                   <Icon name="refresh-cw" size={13} color="#fff" />
@@ -260,8 +341,7 @@ export const JobsFeedPage = () => {
                       key={job.id}
                       onClick={() => setSelectedJob(job)}
                       style={{
-                        padding: "14px 16px",
-                        cursor: "pointer",
+                        padding: "14px 16px", cursor: "pointer",
                         borderBottom: i < jobs.length - 1 ? `1px solid ${COLORS.borderLight}` : "none",
                         background: selectedJob?.id === job.id ? COLORS.brandLight : "transparent",
                         transition: "background 0.1s",
@@ -273,6 +353,11 @@ export const JobsFeedPage = () => {
                           <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>
                             {job.company} · {job.location}
                           </div>
+                          {job.salary && (
+                            <div style={{ fontSize: 11, color: COLORS.brand, marginTop: 2, fontWeight: 500 }}>
+                              {job.salary}
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0, marginLeft: 8 }}>
                           {mc && job.matchScore != null && (
@@ -317,7 +402,8 @@ export const JobsFeedPage = () => {
                       <Badge variant={selectedJob.source as "linkedin" | "naukri" | "indeed"}>{sourceLabel(selectedJob.source)}</Badge>
                     </div>
                     <div style={{ fontSize: 13, color: COLORS.textMuted }}>
-                      {selectedJob.company} · {selectedJob.location}{selectedJob.salary ? ` · ${selectedJob.salary}` : ""}
+                      {selectedJob.company} · {selectedJob.location}
+                      {selectedJob.salary ? ` · ${selectedJob.salary}` : ""}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -350,6 +436,7 @@ export const JobsFeedPage = () => {
           )}
         </Card>
       </div>
+
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>

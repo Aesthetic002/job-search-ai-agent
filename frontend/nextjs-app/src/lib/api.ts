@@ -97,10 +97,15 @@ export interface JobsFilter {
   query?: string;
   source?: string;
   location?: string;
-  minSalary?: number;
-  tags?: string[];
+  // Indian-specific filters
+  minSalaryLpa?: number;    // Minimum salary in Lakhs Per Annum
+  maxSalaryLpa?: number;    // Maximum salary in LPA
+  workMode?: string;        // "remote" | "hybrid" | "onsite" | "any"
+  noticePeriod?: string;    // "immediate" | "15days" | "30days" | "60days" | "90days" | "any"
+  // Pagination
   page?: number;
   limit?: number;
+  tags?: string[];
 }
 
 function buildQS(filter: JobsFilter): string {
@@ -108,7 +113,10 @@ function buildQS(filter: JobsFilter): string {
   if (filter.query) params.set("query", filter.query);
   if (filter.source) params.set("source", filter.source);
   if (filter.location) params.set("location", filter.location);
-  if (filter.minSalary) params.set("min_salary", String(filter.minSalary));
+  if (filter.minSalaryLpa != null) params.set("min_salary_lpa", String(filter.minSalaryLpa));
+  if (filter.maxSalaryLpa != null) params.set("max_salary_lpa", String(filter.maxSalaryLpa));
+  if (filter.workMode && filter.workMode !== "any") params.set("work_mode", filter.workMode);
+  if (filter.noticePeriod && filter.noticePeriod !== "any") params.set("notice_period", filter.noticePeriod);
   if (filter.page) params.set("page", String(filter.page));
   if (filter.limit) params.set("limit", String(filter.limit));
   if (filter.tags?.length) params.set("tags", filter.tags.join(","));
