@@ -26,6 +26,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from agent.interview_evaluator import evaluate_answer_to_dict
+from agent.llm_provider import get_llm_with_fallback, list_configured_providers
 
 
 
@@ -123,16 +124,6 @@ Generate a diverse set of interview questions tailored specifically to this cand
 ])
 
 
-def get_groq_llm() -> ChatGroq:
-    """Initialize the Groq LLM client."""
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GROQ_API_KEY not configured. Add it to your .env file."
-        )
-    return ChatGroq(model="llama-3.3-70b-versatile", api_key=api_key, temperature=0.7)
-
 
 # ==================== ROUTES ====================
 
@@ -152,12 +143,13 @@ def root():
 
 @app.get("/interview/health")
 def health_check():
-    """Health check — verifies the service is running and GROQ_API_KEY is configured."""
-    has_key = bool(os.getenv("GROQ_API_KEY"))
+    """Health check — verifies the service is running and which LLM providers are configured."""
+    providers = list_configured_providers()
     return {
-        "status": "healthy" if has_key else "degraded",
-        "groq_api_key_configured": has_key,
-        "model": "llama-3.3-70b-versatile",
+        "status": "healthy" if providers else "degraded",
+        "configured_providers": providers,
+        "primary_provider": providers[0] if providers else None,
+        "total_providers": len(providers),
     }
 
 
@@ -165,23 +157,30 @@ def health_check():
 async def generate_interview_questions(request: GenerateInterviewRequest):
     """
     Generate AI-powered mock interview questions tailored to a candidate's resume and target role.
+    Uses the best available free LLM provider with automatic fallback.
 
     - Accepts a job title, resume text, and optional job description.
     - Returns 8-10 questions across Technical, Behavioral, and Situational categories.
     - Each question includes difficulty, category, and preparation hints.
     """
-    llm = get_groq_llm()
-    structured_llm = llm.with_structured_output(InterviewQuestionBank)
-    chain = INTERVIEW_PROMPT | structured_llm
-
     try:
-        result: InterviewQuestionBank = chain.invoke({
-            "job_title": request.job_title,
-            "resume_summary": request.resume_summary,
-            "job_description": request.job_description or "Not provided",
-            "num_questions": request.num_questions
-        })
+        result: InterviewQuestionBank = get_llm_with_fallback(
+            prompt_template=INTERVIEW_PROMPT,
+            output_schema=InterviewQuestionBank,
+            input_vars={
+                "job_title": request.job_title,
+                "resume_summary": request.resume_summary,
+                "job_description": request.job_description or "Not provided",
+                "num_questions": request.num_questions,
+            },
+            temperature=0.7,
+        )
         return result
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

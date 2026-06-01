@@ -1,13 +1,13 @@
 """
 ATS Scoring Engine — Keyword matching and formatting checker against a Job Description.
-Uses Groq (LLaMA 3.3 70B) via LangChain to produce a structured ATS report.
+Uses the unified LLM provider (Groq -> OpenRouter -> NVIDIA NIM -> Gemini -> Cohere)
+for automatic fallback if any provider is rate-limited or unavailable.
 """
-import os
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
+from agent.llm_provider import get_llm_with_fallback
 
 load_dotenv()
 
@@ -94,20 +94,10 @@ Provide a complete, detailed ATS compatibility report."""
 ])
 
 
-def get_groq_llm(model: str = "llama-3.3-70b-versatile") -> ChatGroq:
-    """Initialize the Groq LLM client."""
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "GROQ_API_KEY not found in environment variables.\n"
-            "Get your free key at https://console.groq.com and add it to .env"
-        )
-    return ChatGroq(model=model, api_key=api_key, temperature=0)
-
-
 def score_resume_against_jd(resume_text: str, job_description: str) -> ATSScore:
     """
     Score a resume against a job description using LLM-powered ATS analysis.
+    Uses the best available free LLM provider with automatic fallback.
 
     Args:
         resume_text: Raw text content of the candidate's resume.
@@ -117,22 +107,20 @@ def score_resume_against_jd(resume_text: str, job_description: str) -> ATSScore:
         ATSScore: Pydantic model with detailed ATS scoring report.
 
     Raises:
-        ValueError: If inputs are empty or GROQ_API_KEY is missing.
-        Exception: If LLM call fails.
+        ValueError: If inputs are empty.
+        RuntimeError: If all LLM providers fail.
     """
     if not resume_text or not resume_text.strip():
         raise ValueError("resume_text cannot be empty.")
     if not job_description or not job_description.strip():
         raise ValueError("job_description cannot be empty.")
 
-    llm = get_groq_llm()
-    structured_llm = llm.with_structured_output(ATSScore)
-    chain = ATS_SCORE_PROMPT | structured_llm
-
-    result: ATSScore = chain.invoke({
-        "resume_text": resume_text,
-        "job_description": job_description
-    })
+    result: ATSScore = get_llm_with_fallback(
+        prompt_template=ATS_SCORE_PROMPT,
+        output_schema=ATSScore,
+        input_vars={"resume_text": resume_text, "job_description": job_description},
+        temperature=0.0,
+    )
     return result
 
 

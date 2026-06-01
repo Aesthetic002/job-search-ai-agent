@@ -1,9 +1,12 @@
 """
 Interview Answer Evaluator — agent/interview_evaluator.py
 
-Uses Groq (LLaMA 3.3 70B) to evaluate a candidate's answer to a mock interview question.
+Evaluates a candidate's answer to a mock interview question using the unified
+LLM provider (Groq -> OpenRouter -> NVIDIA NIM -> Gemini -> Cohere) with
+automatic fallback if any provider is rate-limited or unavailable.
+
 Returns a structured evaluation with:
-  - A score (0–100)
+  - A score (0-100)
   - Detected strengths
   - Areas for improvement
   - A model "ideal answer" for comparison
@@ -16,16 +19,15 @@ Usage:
         question="Tell me about a time you dealt with a difficult teammate.",
         candidate_answer="I once had a teammate who...",
         job_title="Software Engineer",
-        category="Behavioral",          # optional
-        expected_topics=["communication", "conflict resolution"],  # optional
+        category="Behavioral",
+        expected_topics=["communication", "conflict resolution"],
     )
 """
-import os
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
+from agent.llm_provider import get_llm_with_fallback
 
 load_dotenv()
 
@@ -110,23 +112,6 @@ Provide a thorough, honest evaluation of this answer."""
 ])
 
 
-# ==================== LLM ENGINE ====================
-
-def _get_groq_llm() -> ChatGroq:
-    """Initialize Groq LLM with structured output capability."""
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "GROQ_API_KEY is not set. Add it to your .env file.\n"
-            "Get a free key at: https://console.groq.com"
-        )
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
-        api_key=api_key,
-        temperature=0.3,  # Lower temp for more consistent evaluation scores
-    )
-
-
 # ==================== PUBLIC API ====================
 
 def evaluate_answer(
@@ -138,32 +123,33 @@ def evaluate_answer(
 ) -> AnswerEvaluation:
     """
     Evaluate a candidate's answer to a mock interview question.
+    Uses the best available free LLM provider with automatic fallback.
 
     Args:
         question:          The interview question that was asked.
         candidate_answer:  The candidate's raw answer text.
         job_title:         Target job title (e.g., "Backend Engineer").
-        category:          Question category — "Technical", "Behavioral", "Situational", "Role-Specific".
+        category:          Question category: "Technical", "Behavioral", "Situational", "Role-Specific".
         expected_topics:   Optional list of key topics the answer should cover.
 
     Returns:
         AnswerEvaluation Pydantic model with full evaluation data.
 
     Raises:
-        RuntimeError: If GROQ_API_KEY is missing.
-        Exception:    If the LLM call fails.
+        RuntimeError: If all LLM providers fail.
     """
-    llm = _get_groq_llm()
-    structured_llm = llm.with_structured_output(AnswerEvaluation)
-    chain = EVALUATOR_PROMPT | structured_llm
-
-    result: AnswerEvaluation = chain.invoke({
-        "question": question,
-        "candidate_answer": candidate_answer,
-        "job_title": job_title,
-        "category": category,
-        "expected_topics": ", ".join(expected_topics) if expected_topics else "Not specified",
-    })
+    result: AnswerEvaluation = get_llm_with_fallback(
+        prompt_template=EVALUATOR_PROMPT,
+        output_schema=AnswerEvaluation,
+        input_vars={
+            "question": question,
+            "candidate_answer": candidate_answer,
+            "job_title": job_title,
+            "category": category,
+            "expected_topics": ", ".join(expected_topics) if expected_topics else "Not specified",
+        },
+        temperature=0.3,
+    )
 
     # Only populate STAR compliance for behavioral questions
     if category.lower() != "behavioral" and result.star_compliance is not None:

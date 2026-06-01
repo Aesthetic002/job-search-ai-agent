@@ -1,13 +1,13 @@
 """
 Resume Parser — AI-powered structured data extraction from raw resume text.
-Uses Groq (LLaMA 3.3 70B) via LangChain to extract structured fields.
+Uses the unified LLM provider (Groq -> OpenRouter -> NVIDIA NIM -> Gemini -> Cohere)
+for automatic fallback if any provider is rate-limited or unavailable.
 """
-import os
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
+from agent.llm_provider import get_llm_with_fallback
 
 load_dotenv()
 
@@ -85,20 +85,10 @@ Extract all contact info, education history, work experience, and skills."""
 ])
 
 
-def get_groq_llm(model: str = "llama-3.3-70b-versatile") -> ChatGroq:
-    """Initialize the Groq LLM client."""
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "GROQ_API_KEY not found in environment variables.\n"
-            "Get your free key at https://console.groq.com and add it to .env"
-        )
-    return ChatGroq(model=model, api_key=api_key, temperature=0)
-
-
 def parse_resume(resume_text: str) -> ParsedResume:
     """
     Parse raw resume text into a structured ParsedResume object.
+    Uses the best available free LLM provider with automatic fallback.
 
     Args:
         resume_text: Raw text content extracted from a PDF/DOCX resume.
@@ -107,17 +97,18 @@ def parse_resume(resume_text: str) -> ParsedResume:
         ParsedResume: Pydantic model containing all structured resume fields.
 
     Raises:
-        ValueError: If GROQ_API_KEY is not set.
-        Exception: If LLM parsing fails.
+        ValueError: If resume_text is empty.
+        RuntimeError: If all LLM providers fail.
     """
     if not resume_text or not resume_text.strip():
         raise ValueError("resume_text cannot be empty.")
 
-    llm = get_groq_llm()
-    structured_llm = llm.with_structured_output(ParsedResume)
-    chain = RESUME_PARSE_PROMPT | structured_llm
-
-    result: ParsedResume = chain.invoke({"resume_text": resume_text})
+    result: ParsedResume = get_llm_with_fallback(
+        prompt_template=RESUME_PARSE_PROMPT,
+        output_schema=ParsedResume,
+        input_vars={"resume_text": resume_text},
+        temperature=0.0,
+    )
     return result
 
 
