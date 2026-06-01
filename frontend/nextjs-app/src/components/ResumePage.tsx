@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { COLORS, Icon, Card, EmptyState } from "./ui";
-import { uploadResume } from "@/lib/api";
+import { uploadResume, analyzeResume, runATSAnalysis } from "@/lib/api";
 import type { ResumeFile, ATSResult } from "@/lib/types";
 
 type Stage = "idle" | "uploading" | "parsed" | "analyzing" | "result" | "error";
@@ -16,6 +16,7 @@ function fmtSize(bytes: number) {
 export const ResumePage = () => {
   const [stage, setStage] = useState<Stage>("idle");
   const [resumeFile, setResumeFile] = useState<ResumeFile | null>(null);
+  const [resumeId, setResumeId] = useState<string | null>(null);   // backend resume_id
   const [jdText, setJdText] = useState("");
   const [atsResult, setAtsResult] = useState<ATSResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,8 @@ export const ResumePage = () => {
     };
     setResumeFile(meta);
     try {
-      await uploadResume(file);
+      const { resumeId: rid } = await uploadResume(file);
+      setResumeId(rid);
       setResumeFile({ ...meta, status: "ready" });
       setStage("parsed");
     } catch (e: unknown) {
@@ -62,13 +64,16 @@ export const ResumePage = () => {
   };
 
   const handleAnalyze = async () => {
-    if (!jdText.trim() || !resumeFile) return;
+    if (!jdText.trim() || !resumeId) return;
     setStage("analyzing");
+    setError(null);
     try {
-      // TODO: call runATSAnalysis(resumeFile.id, jdText)
-      // Simulating the real call shape — replace with actual API when backend is ready
-      await new Promise((r) => setTimeout(r, 1500));
-      throw new Error("ATS analysis backend not yet connected.");
+      // Step 1: Run AI structured extraction (saves to Firestore)
+      await analyzeResume(resumeId);
+      // Step 2: Score resume against the pasted JD
+      const result = await runATSAnalysis(resumeId, jdText);
+      setAtsResult(result);
+      setStage("result");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Analysis failed.";
       setError(msg);
@@ -79,6 +84,7 @@ export const ResumePage = () => {
   const reset = () => {
     setStage("idle");
     setResumeFile(null);
+    setResumeId(null);
     setJdText("");
     setAtsResult(null);
     setError(null);
@@ -214,7 +220,7 @@ export const ResumePage = () => {
               </span>
               <button
                 onClick={handleAnalyze}
-                disabled={!jdText.trim() || stage !== "parsed"}
+              disabled={!jdText.trim() || stage !== "parsed" || !resumeId}
                 style={{
                   padding: "7px 18px",
                   borderRadius: 6,

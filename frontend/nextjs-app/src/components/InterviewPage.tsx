@@ -54,17 +54,27 @@ export const InterviewPage = () => {
     if (!answer.trim() || !currentQ) return;
     setEvaluating(true);
     try {
-      const ev = await evaluateAnswer(currentQ.id, answer, jobTitle);
+      const ev = await evaluateAnswer(
+        currentQ.id,
+        answer,
+        jobTitle,
+        currentQ.text,                    // pass full question text to backend
+        currentQ.category,                // pass category for STAR check
+        currentQ.keyPoints,               // pass expected_topics for gap analysis
+      );
       setEvaluation(ev);
       setStage("evaluated");
-    } catch {
-      // Backend not ready — show a prompt
+    } catch (e: unknown) {
+      // Show a helpful message if the backend is down
       setEvaluation({
         questionId: currentQ.id,
         score: 0,
         strengths: [],
         improvements: ["Connect to the AI backend to get real evaluation."],
-        suggestedAnswer: "The AI evaluation endpoint is not yet connected. Once wired up, this will show a structured rewrite of your answer.",
+        suggestedAnswer:
+          e instanceof Error && e.message.includes("503")
+            ? "Interview Service is not running. Start it with: uvicorn backend.interview_service.main:app --port 8004"
+            : "The AI evaluation endpoint is not yet reachable. Ensure all microservices are running.",
       });
       setStage("evaluated");
     } finally {
