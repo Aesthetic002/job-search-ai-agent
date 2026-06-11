@@ -4,12 +4,14 @@ import React, { useState } from "react";
 import { COLORS, Icon, Card, EmptyState } from "./ui";
 import { fetchInterviewQuestions, evaluateAnswer } from "@/lib/api";
 import type { RoundType, InterviewQuestion, InterviewEvaluation } from "@/lib/types";
+import { NegotiationChat } from "./NegotiationChat";
 
 const ROUND_TYPES: { value: RoundType; label: string; desc: string; icon: string }[] = [
   { value: "behavioral", label: "Behavioral", desc: "Situational & competency questions (STAR method)", icon: "user" },
   { value: "technical", label: "Technical", desc: "Coding, problem-solving, and system concepts", icon: "cpu" },
   { value: "system-design", label: "System Design", desc: "Architecture, scalability, and trade-offs", icon: "layers" },
   { value: "hr", label: "HR / Culture Fit", desc: "Salary, career goals, and company values", icon: "globe" },
+  { value: "negotiation", label: "Salary Negotiation", desc: "Practice negotiating offers with an AI HR Recruiter", icon: "message-square" },
 ];
 
 type SessionStage = "setup" | "loading" | "session" | "evaluated" | "complete";
@@ -19,6 +21,7 @@ export const InterviewPage = () => {
   const [jobTitle, setJobTitle] = useState("");
   const [company, setCompany] = useState("");
   const [roundType, setRoundType] = useState<RoundType>("behavioral");
+  const [targetSalaryLpa, setTargetSalaryLpa] = useState<number>(25);
 
   // Session
   const [stage, setStage] = useState<SessionStage>("setup");
@@ -37,6 +40,12 @@ export const InterviewPage = () => {
     if (!jobTitle.trim()) { setSetupError("Please enter the job title."); return; }
     setSetupError(null);
     setStage("loading");
+    
+    if (roundType === "negotiation") {
+      setStage("session");
+      return;
+    }
+
     try {
       const qs = await fetchInterviewQuestions(roundType, jobTitle.trim());
       setQuestions(qs);
@@ -175,6 +184,22 @@ export const InterviewPage = () => {
               </div>
             </div>
 
+            {roundType === "negotiation" && (
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: COLORS.textMuted, display: "block", marginBottom: 6 }}>
+                  Target Salary (LPA) *
+                </label>
+                <input
+                  type="number"
+                  value={targetSalaryLpa}
+                  onChange={(e) => setTargetSalaryLpa(parseFloat(e.target.value) || 0)}
+                  placeholder="e.g. 25"
+                  min={1}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 6, border: `1px solid ${COLORS.border}`, fontSize: 13, color: COLORS.text, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+            )}
+
             {setupError && (
               <div style={{ marginBottom: 16, padding: "8px 12px", borderRadius: 6, background: COLORS.dangerBg, border: `1px solid #FECACA`, fontSize: 12, color: COLORS.danger }}>
                 {setupError}
@@ -199,7 +224,7 @@ export const InterviewPage = () => {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: COLORS.bg }}>
         <div style={{ textAlign: "center" }}>
           <Icon name="refresh-cw" size={28} color={COLORS.brand} style={{ animation: "spin 1s linear infinite", marginBottom: 16 }} />
-          <div style={{ fontSize: 14, color: COLORS.textMuted }}>Preparing your interview questions…</div>
+          <div style={{ fontSize: 14, color: COLORS.textMuted }}>Preparing your interview...</div>
         </div>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -216,8 +241,7 @@ export const InterviewPage = () => {
           </div>
           <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>Session Complete</div>
           <div style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 24, lineHeight: 1.7 }}>
-            You completed {questions.length} question{questions.length !== 1 ? "s" : ""} for the {jobTitle} role.
-            Connect the backend to get a full session summary and overall score.
+            You completed the session for the {jobTitle} role.
           </div>
           <button onClick={handleReset} style={{ padding: "10px 24px", borderRadius: 6, border: "none", background: COLORS.brand, color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
             Start New Session
@@ -227,7 +251,40 @@ export const InterviewPage = () => {
     );
   }
 
-  // ─── SESSION + EVALUATED (No questions available yet) ─────────────────────
+  // ─── SESSION: NEGOTIATION ─────────────────────────────────────────────────
+  if (roundType === "negotiation") {
+    return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: COLORS.bg, minHeight: "100vh" }}>
+        <div style={{ padding: "20px 28px 14px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+              <div style={{ padding: "3px 8px", borderRadius: 4, background: COLORS.brandLight, border: "1px solid #C7D2FE" }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.brand, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: COLORS.brand, display: "inline-block", animation: "pulse 1.5s ease infinite" }} />
+                  LIVE NEGOTIATION
+                </span>
+              </div>
+              <span style={{ fontSize: 12, color: COLORS.textMuted }}>
+                {jobTitle}{company ? ` @ ${company}` : ""}
+              </span>
+            </div>
+            <h1 style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+              Offer Negotiation
+            </h1>
+          </div>
+          <button onClick={handleReset} style={{ padding: "7px 14px", borderRadius: 6, border: "none", background: COLORS.dangerBg, fontSize: 13, color: COLORS.danger, fontWeight: 500, cursor: "pointer" }}>
+            End Session
+          </button>
+        </div>
+        <div style={{ padding: "24px 28px", maxWidth: 800, margin: "0 auto", width: "100%" }}>
+          <NegotiationChat jobTitle={jobTitle} targetSalaryLpa={targetSalaryLpa} />
+        </div>
+        <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+      </div>
+    );
+  }
+
+  // ─── SESSION: REGULAR (No questions available yet) ────────────────────────
   if (!currentQ) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: COLORS.bg }}>

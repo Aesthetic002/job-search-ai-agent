@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from agent.interview_evaluator import evaluate_answer_to_dict
 from agent.llm_provider import get_llm_with_fallback, list_configured_providers
+from .negotiation_routes import router as negotiation_router
 
 
 
@@ -44,6 +45,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(negotiation_router)
 
 # ==================== PYDANTIC SCHEMAS ====================
 

@@ -282,6 +282,18 @@ export const ResumePage = () => {
                 </div>
               </div>
             </div>
+            {atsResult.courseRecommendations && atsResult.courseRecommendations.length > 0 && (
+              <div style={{ padding: "16px", borderTop: `1px solid ${COLORS.borderLight}` }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.brand, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Icon name="book-open" size={14} color={COLORS.brand} /> Course Recommendations to Fill Gaps
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: COLORS.text, lineHeight: 1.6 }}>
+                  {atsResult.courseRecommendations.map((course, i) => (
+                    <li key={i}>{course}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Card>
         ) : stage !== "result" ? (
           <Card style={{ background: COLORS.borderLight, border: "none" }}>

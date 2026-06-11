@@ -187,29 +187,73 @@ def send_notification_task(
     content: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Background task to send notifications (email, push, etc.).
+    Background task to send email notifications via SMTP.
+
+    Reads credentials from environment variables:
+        SMTP_HOST     — SMTP server hostname  (default: smtp.sendgrid.net)
+        SMTP_PORT     — SMTP port             (default: 587)
+        SMTP_USER     — SMTP username         (default: apikey for SendGrid)
+        SMTP_PASSWORD — SMTP password / SendGrid API key
+        FROM_EMAIL    — Sender email address
 
     Args:
         user_id: User ID to notify
-        notification_type: Type of notification (email, push, sms)
-        content: Notification content
-
-    Returns:
-        Dictionary with send status
+        notification_type: Type of notification (email, push, job_alert)
+        content: Dict with keys:
+                   - to_email: recipient address
+                   - subject: email subject line
+                   - body: plain-text email body (HTML also supported via body_html)
     """
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_host = os.getenv("SMTP_HOST", "smtp.sendgrid.net")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "apikey")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    from_email = os.getenv("FROM_EMAIL", "noreply@jobsearchai.app")
+
+    to_email = content.get("to_email")
+    subject = content.get("subject", "Job Search AI Notification")
+    body_text = content.get("body", "")
+    body_html = content.get("body_html", "")
+
+    if not to_email:
+        return {"status": "skipped", "reason": "No to_email provided"}
+
+    if not smtp_password:
+        # No SMTP configured — log and skip gracefully
+        print(f"[send_notification_task] SMTP_PASSWORD not set. Skipping email to {to_email}.")
+        return {"status": "skipped", "reason": "SMTP not configured"}
+
     try:
-        # TODO: Implement actual notification sending
-        # This is a placeholder for notification logic
+        msg = MIMEMultipart("alternative")
+        msg["From"] = from_email
+        msg["To"] = to_email
+        msg["Subject"] = subject
+
+        msg.attach(MIMEText(body_text, "plain"))
+        if body_html:
+            msg.attach(MIMEText(body_html, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(from_email, to_email, msg.as_string())
 
         return {
             "user_id": user_id,
             "notification_type": notification_type,
             "status": "sent",
-            "message": f"Notification of type {notification_type} sent successfully"
+            "to": to_email,
+            "message": f"Email sent to {to_email}",
         }
 
     except Exception as exc:
-        self.retry(exc=exc, countdown=10)
+        self.retry(exc=exc, countdown=30)
+        return {"status": "failed", "error": str(exc)}
 
 
 @app.task

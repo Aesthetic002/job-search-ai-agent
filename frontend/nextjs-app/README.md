@@ -1,88 +1,125 @@
-# Job Search AI — Next.js Frontend Dashboard
+# Job Search AI Agent — Frontend
 
-This directory houses the premium React dashboard for the Job Search AI Agent portal, built on Next.js 16 (App Router) with custom TypeScript definitions and custom Vanilla CSS.
-
----
-
-## 🎨 Design Philosophy & UI Guidelines
-
-The dashboard is designed to feel highly premium, state-of-the-art, and professional. It aligns with the following product design rules:
-*   **Strict Light Mode:** Curated HSL-tailored colors (`bg`, `card`, `border`, `brand`, `success`, `warning`, `danger`) define the theme—completely avoiding plain browser defaults or dark mode styling.
-*   **No Placeholders or Generic Layouts:** Every page is populated with custom mock interfaces, interactive statuses, and detailed metric structures.
-*   **Zero Emojis:** Standardized, clean vector icons (via SVG paths mapped in `ui.tsx`) are used exclusively for clean aesthetic presentation.
-*   **Collapsible Sidebar:** Navigation collapses down to a compact 60px icon-only layout with hardware-accelerated CSS transition curves.
-*   **Loading States:** Built-in `<Skeleton />` loaders with a custom CSS shimmer keyframe ensure smooth content transitions.
+> **Next.js 14 (App Router)** — Custom CSS design system · No external UI libraries
 
 ---
 
-## 📁 Key Dashboard Features
+## Overview
 
-1.  **Resume Onboarding Gate (`OnboardingPage`):**
-    *   Guards the application on initial visit. A full-screen drag-and-drop zone forces resume upload.
-    *   Saves the onboarded status inside the browser's `localStorage` to bypass future onboarding steps.
-2.  **Dashboard Hub (`DashboardPage`):**
-    *   Displays macro statistics (Application Counts, Scheduled Interviews, ATS Averages, and Success Rates).
-    *   Shows a visual SVG sparkline trend graph and a summary table of active application files.
-3.  **Job Recommendations & Search (`JobsFeedPage`):**
-    *   Browse matching positions in a dual-column layout (Listings on the left, full Job Details + description on the right).
-    *   Supports text search queries, source filters (LinkedIn, Naukri, Indeed), and instant application submissions.
-4.  **Drag-and-Drop Kanban Board (`KanbanPage`):**
-    *   A status tracker featuring five stages: *Wishlist*, *Applied*, *Interviewing*, *Offer*, and *Rejected*.
-    *   Implemented via local React state handlers, permitting card dragging, sorting, and stage transitions.
-5.  **Resume Analysis & ATS Gap Check (`ResumePage` & `ResumeDemoPage`):**
-    *   Paste job descriptions side-by-side with resumes to view keyword overlap scores out of 100.
-    *   Color-coded matched and missing skill badges with improvement warnings.
-6.  **AI Interview Practice simulator (`InterviewPage`):**
-    *   Select round types (Technical, HR, Behavioral) and target roles to trigger mock interview questions.
-    *   Track answer lengths, response logs, and evaluation metrics dynamically.
+This is the full-stack frontend for the Job Search AI Agent platform. It communicates with 5 separate FastAPI microservices via Next.js API rewrites (so no CORS issues and service URLs stay out of the browser bundle).
 
 ---
 
-## 🛠️ Folder Structure
+## Features
+
+| Page | Route | Description |
+|---|---|---|
+| **Onboarding** | (first visit) | Resume upload gate — parsed immediately on upload |
+| **Dashboard** | `/` → `dashboard` | Stats summary + recommended job feed |
+| **Jobs Feed** | `jobs` | Search Naukri/Indeed/LinkedIn with Indian filters + AI insights |
+| **Resume** | `resume` | Upload + AI parsing + ATS score against any JD |
+| **Kanban** | `kanban` | Drag-and-drop tracker (Applied → Screening → Offer) |
+| **Interview** | `interview` | AI question generator + answer evaluator + negotiation chatbot |
+
+---
+
+## Tech Stack
+
+- **Framework**: Next.js 14 with App Router
+- **Styling**: Vanilla CSS-in-JS (inline styles with the shared `COLORS` token system in `ui.tsx`)
+- **Type Safety**: TypeScript throughout
+- **State**: React `useState` / `useCallback` — no Redux or Zustand
+- **API Layer**: `src/lib/api.ts` — typed async functions for all 5 services
+
+---
+
+## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── globals.css      # Core CSS tokens, styles, and @keyframes (shimmer, spin)
-│   ├── layout.tsx       # Global HTML5 wrappers and SEO metadata
-│   └── page.tsx         # App shell coordinating Onboarding states and active routes
+│   ├── page.tsx            # App shell — routes between pages; Onboarding gate ✨
+│   ├── layout.tsx          # Root layout + Google Fonts
+│   └── globals.css         # CSS reset
 ├── components/
-│   ├── ui.tsx           # Shared components (Card, Badge, EmptyState, Skeleton, StatCard, Icon)
-│   ├── Sidebar.tsx      # Collapsible side navigation layout
-│   ├── OnboardingPage.tsx # Onboarding drag-and-drop wizard
-│   ├── DashboardPage.tsx # Summary statistics and lists
-│   ├── KanbanPage.tsx    # Drag-and-drop board
-│   ├── JobsFeedPage.tsx  # Dual-column job search client
-│   ├── ResumePage.tsx    # Resume uploads and ATS analysis
-│   ├── ResumeDemoPage.tsx # Step-by-step ATS checklist demo
-│   ├── InterviewPage.tsx # Interactive Q&A mock round simulator
-│   └── AboutPage.tsx     # Mission statements and tech-stack tables
+│   ├── ui.tsx              # Shared design system (COLORS, Icon, Card, Badge…)
+│   ├── Sidebar.tsx         # Collapsible navigation sidebar
+│   ├── OnboardingPage.tsx  # First-visit resume upload flow
+│   ├── DashboardPage.tsx   # Home dashboard with stats + job feed
+│   ├── JobsFeedPage.tsx    # Search + filters + AI insights panel
+│   ├── ResumePage.tsx      # Resume upload + ATS analysis
+│   ├── KanbanPage.tsx      # Application tracking board
+│   ├── InterviewPage.tsx   # Mock interview + salary negotiation
+│   ├── ResumeDemoPage.tsx  # Demo/walkthrough page
+│   └── AboutPage.tsx       # About page
 └── lib/
-    ├── api.ts           # Central fetch client (API stubs to real backend routes)
-    └── types.ts         # Global TypeScript interface specifications (Job, Application, User, etc.)
+    ├── api.ts              # Typed API client (all 5 microservices)
+    └── types.ts            # Shared TypeScript interfaces
 ```
 
 ---
 
-## 💻 Development & Build Scripts
+## Running Locally
 
-First, install dependencies:
 ```bash
 npm install
+npm run dev     # starts on http://localhost:3000
 ```
 
-Run the local development server:
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) with your browser.
+The backend services must also be running on their respective ports (8001–8005). See the root `README.md` for the full startup guide.
 
-Build the application for production deployment (runs compiler type checks and static pages generation):
-```bash
-npm run build
+---
+
+## API Wiring
+
+All `/api/*` calls are proxied via `next.config.ts`:
+
+| Frontend path | Backend service |
+|---|---|
+| `/api/auth/*` | Auth Service `:8001` |
+| `/api/jobs/*` | Jobs Service `:8002` |
+| `/api/resumes/*` | Resume Service `:8003` |
+| `/api/interview/*` | Interview Service `:8004` |
+| `/api/analytics/*` | Analytics Service `:8005` |
+| `/api/applications/*` | Auth Service `:8001` |
+
+---
+
+## Environment Variables
+
+The frontend itself needs no secrets. All service URLs default to `localhost:800x` but can be overridden for production:
+
+```env
+AUTH_SERVICE_URL=https://auth.yourapp.com
+JOBS_SERVICE_URL=https://jobs.yourapp.com
+RESUME_SERVICE_URL=https://resume.yourapp.com
+INTERVIEW_SERVICE_URL=https://interview.yourapp.com
+ANALYTICS_SERVICE_URL=https://analytics.yourapp.com
 ```
 
-Run production build locally:
+---
+
+## Building for Production
+
 ```bash
-npm run start
+npm run build   # TypeScript check + static page generation
+npm start       # Serve the production build
 ```
+
+---
+
+## Design System
+
+All styling uses the `COLORS` token object from `src/components/ui.tsx`:
+
+```typescript
+COLORS.bg         // Page background (#F8FAFC)
+COLORS.card       // Card surfaces (#FFFFFF)
+COLORS.brand      // Primary blue (#3B82F6)
+COLORS.brandLight // Light blue tint (#EFF6FF)
+COLORS.text       // Primary text (#0F172A)
+COLORS.textMuted  // Secondary text (#64748B)
+COLORS.border     // Card borders (#E2E8F0)
+```
+
+Common components: `Card`, `Badge`, `Icon`, `EmptyState`, `StatCard`, `Skeleton`

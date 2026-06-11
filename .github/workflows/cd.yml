@@ -1,0 +1,24 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ "master", "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [] # We would normally wait for the CI pipeline here, but kept separate for demonstration
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy Backend Services
+      run: |
+        echo "Deploying FastAPI microservices to production environment..."
+        # Add actual deployment scripts here once a hosting provider (Render/Railway/Azure) is selected
+        echo "Deployment simulated successfully."
+        
+    - name: Deploy Frontend
+      run: |
+        echo "Deploying Next.js frontend..."
+        # Add frontend deployment steps (e.g. Vercel deployment action) here
+        echo "Frontend deployment simulated successfully."

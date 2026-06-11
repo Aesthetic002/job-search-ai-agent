@@ -37,6 +37,7 @@ from .api_clients.base import JobSearchParams
 from .api_clients.naukri_client import NaukriClient
 from .api_clients.indeed_client import IndeedClient
 from .api_clients.linkedin_client import LinkedInClient
+from .insights_routes import router as insights_router
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Firestore client (optional — falls back gracefully if Firebase not configured)
@@ -63,6 +64,8 @@ RESULTS_PER_SOURCE = 15  # how many results to request from each scraper
 # Router
 # ──────────────────────────────────────────────────────────────────────────────
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
+
+# ... (caching & scraping helpers omitted for brevity, but they are untouched) ...
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Caching helpers
@@ -363,7 +366,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(router)
-
+app.include_router(insights_router)
 
 @app.get("/")
 def root():

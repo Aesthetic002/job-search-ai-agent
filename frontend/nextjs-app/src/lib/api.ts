@@ -26,6 +26,8 @@ import type {
   InterviewQuestion,
   InterviewEvaluation,
   ConnectedSource,
+  SalaryBenchmark,
+  CompanyResearch,
 } from "./types";
 
 // ─── Auth Helpers ────────────────────────────────────────────────────────────
@@ -252,6 +254,7 @@ export async function runATSAnalysis(
       overall_score: number;
       keyword_matches?: Array<{ keyword: string; found: boolean }>;
       recommendations?: string[];
+      course_recommendations?: string[];
     };
   }>(`/api/resumes/${resumeId}/score`, {
     method: "POST",
@@ -268,6 +271,7 @@ export async function runATSAnalysis(
     missingKeywords: (report.keyword_matches ?? [])
       .filter((k) => !k.found)
       .map((k) => k.keyword),
+    courseRecommendations: report.course_recommendations ?? [],
     suggestedRewrite: undefined,
     tip: report.recommendations?.[0],
   };
@@ -363,6 +367,29 @@ export async function evaluateAnswer(
   };
 }
 
+export async function chatNegotiation(
+  jobTitle: string,
+  targetSalaryLpa: number,
+  history: Array<{ role: string; content: string }>,
+  userMessage: string
+): Promise<{ aiResponse: string; feedback: string; sentiment: string }> {
+  const data = await apiFetch<any>("/api/interview/negotiation/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      job_title: jobTitle,
+      target_salary_lpa: targetSalaryLpa,
+      history,
+      user_message: userMessage,
+    }),
+  });
+
+  return {
+    aiResponse: data.ai_response,
+    feedback: data.feedback,
+    sentiment: data.sentiment,
+  };
+}
+
 // ─── Connected Sources ────────────────────────────────────────────────────────
 
 export async function fetchConnectedSources(): Promise<ConnectedSource[]> {
@@ -379,3 +406,28 @@ export async function connectSource(source: string): Promise<ConnectedSource> {
     body: JSON.stringify({ source }),
   });
 }
+
+// ─── Insights ────────────────────────────────────────────────────────
+
+export async function fetchSalaryBenchmark(role: string, location: string): Promise<SalaryBenchmark> {
+  const data = await apiFetch<any>(`/api/jobs/insights/salary?role=${encodeURIComponent(role)}&location=${encodeURIComponent(location)}`);
+  return {
+    minLpa: data.min_lpa,
+    midLpa: data.mid_lpa,
+    maxLpa: data.max_lpa,
+    confidence: data.confidence,
+    summary: data.summary,
+  };
+}
+
+export async function fetchCompanyResearch(companyName: string): Promise<CompanyResearch> {
+  const data = await apiFetch<any>(`/api/jobs/insights/company?name=${encodeURIComponent(companyName)}`);
+  return {
+    companyName: data.company_name,
+    cultureSummary: data.culture_summary,
+    interviewProcess: data.interview_process,
+    pros: data.pros,
+    cons: data.cons,
+  };
+}
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar, type NavPage } from "@/components/Sidebar";
 import { DashboardPage } from "@/components/DashboardPage";
 import { JobsFeedPage } from "@/components/JobsFeedPage";
@@ -9,12 +9,45 @@ import { KanbanPage } from "@/components/KanbanPage";
 import { InterviewPage } from "@/components/InterviewPage";
 import { ResumeDemoPage } from "@/components/ResumeDemoPage";
 import { AboutPage } from "@/components/AboutPage";
+import { OnboardingPage } from "@/components/OnboardingPage";
+
+const ONBOARDING_KEY = "job_search_ai_onboarded";
 
 export default function App() {
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [activePage, setActivePage] = useState<NavPage>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Read localStorage on mount (avoids SSR mismatch)
+  useEffect(() => {
+    const done = localStorage.getItem(ONBOARDING_KEY) === "true";
+    setOnboarded(done);
+  }, []);
+
+  const handleOnboardingComplete = (_fileName: string) => {
+    localStorage.setItem(ONBOARDING_KEY, "true");
+    setOnboarded(true);
+  };
+
+  const handleOnboardingSkip = () => {
+    localStorage.setItem(ONBOARDING_KEY, "true");
+    setOnboarded(true);
+  };
+
   const navigate = (page: string) => setActivePage(page as NavPage);
+
+  // SSR hydration: render nothing until we've read localStorage
+  if (onboarded === null) return null;
+
+  // First-time visitor → show full-screen onboarding
+  if (!onboarded) {
+    return (
+      <OnboardingPage
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
+    );
+  }
 
   const renderPage = () => {
     switch (activePage) {

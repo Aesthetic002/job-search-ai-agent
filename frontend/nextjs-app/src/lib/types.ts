@@ -12,7 +12,8 @@ export type RoundType =
   | "behavioral"
   | "technical"
   | "system-design"
-  | "hr";
+  | "hr"
+  | "negotiation";
 export type ResumeStatus = "uploading" | "parsing" | "ready" | "error";
 
 export interface Job {
@@ -79,6 +80,7 @@ export interface ATSResult {
   score: number; // 0-100
   matchedKeywords: string[];
   missingKeywords: string[];
+  courseRecommendations?: string[];
   suggestedRewrite?: string;
   tip?: string;
 }
@@ -123,3 +125,20 @@ export interface ConnectedSource {
   lastSyncedAt?: string;
   status: "active" | "error" | "expired";
 }
+
+export interface SalaryBenchmark {
+  minLpa: number;
+  midLpa: number;
+  maxLpa: number;
+  confidence: string;
+  summary: string;
+}
+
+export interface CompanyResearch {
+  companyName: string;
+  cultureSummary: string;
+  interviewProcess: string;
+  pros: string[];
+  cons: string[];
+}
+

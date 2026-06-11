@@ -1,102 +1,68 @@
 # 📋 Remaining Work — Job Search AI Agent
 
-This document tracks all the pending tasks required to complete the **Job Search AI Agent (Track B - Advanced)** project for the final submission. It has been updated to reflect the work completed so far (such as the frontend API wiring, AI mock interview answer evaluator, and the 5-provider fallback system).
+Last updated: June 2026
 
 ---
 
-## 🛠️ Completed in the Latest Sprint
-- **Unified LLM Provider (`agent/llm_provider.py`)**: Built a 5-provider fallback chain (Groq LLaMA 3.3 70B → OpenRouter Gemini Free → NVIDIA NIM LLaMA 3.3 → Gemini 2.0 Flash → Cohere Command-R) ensuring the system always runs on free-tier models without failure.
-- **Mock Interview Evaluator (`agent/interview_evaluator.py`)**: Implemented answer evaluation using STAR methodology compliance and sentiment analysis.
-- **Frontend API Wiring (`frontend/nextjs-app/src/lib/api.ts`)**: Replaced all mock/stub data with real backend `fetch` requests, complete with automatic JWT token injection.
-- **Resume & Interview Integration**: Fully wired the frontend Resume Page and Mock Interview Simulator page to the live backend services (`POST /resumes/{id}/analyze`, `POST /resumes/{id}/score`, and `POST /interview/evaluate`).
-- **Next.js Proxy Rewrites (`next.config.ts`)**: Configured proxy rewrites to bypass CORS and route all frontend requests clean to the 5 backend microservices.
+## ✅ Completed
+
+Everything below was completed across the project sprints:
+
+### Core AI Layer
+- **Unified LLM Provider (`agent/llm_provider.py`)**: 5-provider fallback chain (Groq → OpenRouter → NVIDIA NIM → Gemini → Cohere). Zero cost for dev/demo.
+- **Resume Parser (`agent/resume_parser.py`)**: Structured extraction via Pydantic output schemas — pulls contact, education, experience, and skills.
+- **ATS Scoring Engine (`agent/ats_scoring.py`)**: Keyword match (0–50), experience relevance (0–30), formatting quality (0–20). Includes course recommendations for skill gaps.
+- **Interview Evaluator (`agent/interview_evaluator.py`)**: STAR methodology compliance grader with ideal answer summary and communication feedback.
+
+### Backend Microservices
+- **Auth Service (:8001)**: JWT register/login + user CRUD + full Applications CRUD API (Firestore-backed Kanban persistence).
+- **Jobs Service (:8002)**: Live scrapers for Naukri, Indeed, LinkedIn with Indian-specific filters (LPA salary range, notice period, work mode). 30-minute Firestore cache. AI insights: salary benchmarking + company research routes.
+- **Resume Service (:8003)**: Azure Blob upload, PyMuPDF/python-docx text extraction, AI parsing, ATS scoring.
+- **Interview Service (:8004)**: AI question generation, answer evaluation, + salary negotiation chatbot (live HR roleplay).
+- **Analytics Service (:8005)**: Dashboard endpoint, weekly trends, success/response rate metrics.
+
+### Frontend (Next.js 14)
+- **Onboarding flow**: First-visit resume upload gate (wired to `localStorage` flag).
+- **Dashboard**: Live stats from Analytics Service + recommended job feed from Jobs Service.
+- **Jobs Feed**: Search with Indian filters (LPA, notice period, work mode) + AI insights panel (salary + company research).
+- **Resume Page**: Upload + AI parse + ATS score analysis with keyword visualization.
+- **Kanban Board**: Drag-and-drop application tracker wired to Applications API.
+- **Interview Simulator**: Question generation → timed answer → AI evaluation with STAR scoring.
+- **Salary Negotiation**: AI HR chatbot in the Interview section.
+
+### Infrastructure
+- **Frontend → Backend API wiring**: Next.js API rewrites proxy all `/api/*` calls to the correct microservice (no CORS issues, service URLs not exposed to browser).
+- **CI/CD**: GitHub Actions CI (Python syntax check + Next.js build). CD stub ready for Render/Railway.
+- **Email Notifications**: Celery task `send_notification_task` implemented with real SMTP/SendGrid support. Gracefully skips when `SMTP_PASSWORD` not set.
 
 ---
 
-## 🔴 High Priority — Core Requirements (Next Sprint)
+## ⏳ Pending (Excluded from Scope: Hosting & Azure Credentials)
 
-### 1. Job Scrapers & Indian Platforms Integration
-The project brief requires integration with active Indian job boards and location/salary filters.
-- [ ] **Naukri.com Scraper Client** (`backend/jobs_service/api_clients/naukri.py`)
-  - *Owner:* **Aaryan**
-  - Implement a web scraper or search client matching Indian job listings.
-- [ ] **Indeed India Scraper Client** (`backend/jobs_service/api_clients/indeed.py`)
-  - *Owner:* **Aaryan**
-  - Implement Indeed search client.
-- [ ] **LinkedIn Jobs Scraper Client** (`backend/jobs_service/api_clients/linkedin.py`)
-  - *Owner:* **Aaryan**
-  - Extract basic details from public listings or a mock scraper payload.
-- [ ] **Indian-Specific Filters**
-  - *Owner:* **Aaryan / Rohith**
-  - Support filters: CTC/Salary in LPA (Lakhs Per Annum), Notice Period (e.g., Immediate, 15 days, 30 days, 90 days), Metro/Tier-2 locations, Work from Home (WFH) / Hybrid / On-site.
-- [ ] **Firestore Caching**
-  - *Owner:* **Hemanth / Aaryan**
-  - Cache results in Firestore so duplicate queries do not trigger repeated scraping calls.
+### 🔴 Required for Production Submission
 
-### 2. CI/CD Pipeline
-- [ ] **Automated Testing & Build Pipeline** (`.github/workflows/ci.yml`)
-  - *Owner:* **Aaryan / Hemanth**
-  - Run pytest for microservices and build the Next.js app on every Pull Request or push.
-- [ ] **Deployment Workflow** (`.github/workflows/cd.yml`)
-  - *Owner:* **Aaryan / Hemanth**
-  - Automated deployment of services to a cloud provider (e.g., Azure or Render) on merging to `master`.
+- [ ] **Azure Blob Storage** — Create Storage Account + generate Connection String → add to `.env`
+- [ ] **Firebase Production Service Account** — Generate and add JSON to deployment environment
+- [ ] **Deploy 5 microservices** — Render / Railway / Azure App Service
+- [ ] **Deploy frontend to Vercel** — Update `.github/workflows/cd.yml` with real deployment tokens
+- [ ] **`cd.yml` production secrets** — Add `VERCEL_TOKEN`, `RENDER_API_KEY` etc. as GitHub secrets
 
-### 3. Production Deployment & Orchestration
-- [ ] **Production-Ready Docker Compose**
-  - *Owner:* **Hemanth**
-  - Optimize `docker-compose.yml` for production, ensuring environment variables are securely injected and Redis/Celery scales properly.
-- [ ] **Host Configuration**
-  - *Owner:* **Hemanth**
-  - Deploy the 5 microservices + Next.js frontend to a cloud platform, setting up correct domain/subdomain routing.
+### 🟡 Medium Priority (Max Marks)
+
+- [ ] **Career Roadmap Engine** — Generate step-by-step career path from current role → target role (goes beyond single course recommendations)
+- [ ] **Job Alert Emails** — Trigger `send_notification_task` weekly with top job matches per user (Celery beat schedule)
+
+### 🟢 Low Priority / Nice to Have
+
+- [ ] **Google Calendar integration** — Allow users to book mock interview sessions into their calendar
+- [ ] **LinkedIn Profile Optimizer** — Feed parsed resume data → output actionable LinkedIn profile suggestions
+- [ ] **Git release tag** — Run `git tag v1.0` after final merge for submission
 
 ---
 
-## 🟡 Medium Priority — Enhancements for Maximum Marks
+## 📦 Submission Checklist
 
-### 4. Salary Benchmarking & Negotiation
-- [ ] **LPA Salary Benchmarking Service**
-  - *Owner:* **Kaisen / Hemanth**
-  - Extract salary insights for specific roles, tech stacks, and locations in India (LPA format).
-- [ ] **Salary Negotiation AI Chatbot**
-  - *Owner:* **Kaisen**
-  - Interactive LLM-powered chat interface to help candidates negotiate offers.
-
-### 5. Company Research Tool
-- [ ] **Company Profile lookup**
-  - *Owner:* **Kaisen**
-  - LLM-powered summary engine that aggregates company culture, standard interview rounds, ratings, and common questions.
-
-### 6. Career Path & Skills Gap Course Recommendations
-- [ ] **Career Roadmap Engine**
-  - *Owner:* **Kaisen**
-  - Generate step-by-step career path roadmaps based on current vs target job profiles.
-- [ ] **Course Recommendations**
-  - *Owner:* **Kaisen**
-  - Map missing skills (from ATS report) to recommended Coursera, Udemy, or Youtube learning resources.
-
-### 7. Job Alert Notification System
-- [ ] **Email Alerts**
-  - *Owner:* **Aaryan**
-  - Integrate SendGrid or standard SMTP setup in the Celery task runner to email matching jobs to the user weekly or daily.
-
----
-
-## 🟢 Low Priority & Polish
-
-### 8. Calendar Integration
-- [ ] **Interview Scheduling**
-  - *Owner:* **Rohith / Hemanth**
-  - Allow users to link their Google Calendar or Outlook Calendar to book/log mock interview schedules.
-
-### 9. LinkedIn Profile Optimizer
-- [ ] **Profile Review Engine**
-  - *Owner:* **Kaisen**
-  - Feed resume data and output actionable suggestions to optimize the candidate's LinkedIn profile.
-
----
-
-## 📦 Project Submission Checklist
-- [ ] **Demo Video** (8-10 mins duration showing full flow)
-- [ ] **Production deployment link**
-- [ ] **API Documentation** (Fully documented FastAPI endpoints)
-- [ ] **Git release tag** (`git tag v1.0` on final merge)
+- [ ] Demo video (8–10 mins showing full flow: onboarding → jobs → Kanban → resume ATS → interview)
+- [ ] Production deployment link (Vercel URL)
+- [ ] API documentation (FastAPI `/docs` auto-generated at each service port)
+- [ ] Git release tag `v1.0` on final merge

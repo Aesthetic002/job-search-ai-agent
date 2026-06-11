@@ -59,7 +59,10 @@ class ATSScore(BaseModel):
         default_factory=list,
         description="Top 3-5 prioritized, actionable recommendations to improve ATS score"
     )
-
+    course_recommendations: List[str] = Field(
+        default_factory=list,
+        description="List of 2-3 specific Coursera/YouTube search terms or links to learn the missing keywords"
+    )
 
 # ==================== ATS SCORING ENGINE ====================
 
@@ -75,7 +78,8 @@ Scoring Criteria:
 - Formatting Quality (0-20 points): Is the resume well-structured with clear sections, quantified achievements, and action verbs?
 
 Be objective, specific, and provide genuinely actionable recommendations.
-Do NOT just say "add more keywords" — be specific about WHICH keywords are missing and WHERE to add them."""
+Do NOT just say "add more keywords" — be specific about WHICH keywords are missing and WHERE to add them.
+Also, provide 2-3 specific course recommendations or search terms (e.g. Coursera or YouTube) for the most important missing keywords."""
     ),
     (
         "human",

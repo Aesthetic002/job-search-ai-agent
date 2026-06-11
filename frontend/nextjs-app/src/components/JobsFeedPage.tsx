@@ -2,8 +2,8 @@
 
 import React, { useState, useCallback } from "react";
 import { COLORS, Icon, Card, Badge, EmptyState, Skeleton } from "./ui";
-import { searchJobs, syncJobSources } from "@/lib/api";
-import type { Job } from "@/lib/types";
+import { searchJobs, syncJobSources, fetchCompanyResearch, fetchSalaryBenchmark } from "@/lib/api";
+import type { Job, CompanyResearch, SalaryBenchmark } from "@/lib/types";
 
 // ─── Filter option lists ──────────────────────────────────────────────────────
 
@@ -82,6 +82,15 @@ export const JobsFeedPage = () => {
   const [maxSalaryLpa, setMaxSalaryLpa] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Insights State
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [companyResearch, setCompanyResearch] = useState<CompanyResearch | null>(null);
+  const [loadingCompany, setLoadingCompany] = useState(false);
+  
+  const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [salaryBenchmark, setSalaryBenchmark] = useState<SalaryBenchmark | null>(null);
+  const [loadingSalary, setLoadingSalary] = useState(false);
+
   const doSearch = useCallback(async () => {
     setLoading(true);
     setSearched(true);
@@ -109,6 +118,34 @@ export const JobsFeedPage = () => {
       await doSearch();
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleResearchCompany = async () => {
+    if (!selectedJob) return;
+    setShowCompanyModal(true);
+    setLoadingCompany(true);
+    try {
+      const data = await fetchCompanyResearch(selectedJob.company);
+      setCompanyResearch(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingCompany(false);
+    }
+  };
+
+  const handleBenchmarkSalary = async () => {
+    if (!selectedJob) return;
+    setShowSalaryModal(true);
+    setLoadingSalary(true);
+    try {
+      const data = await fetchSalaryBenchmark(selectedJob.title, selectedJob.location);
+      setSalaryBenchmark(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingSalary(false);
     }
   };
 
@@ -406,7 +443,13 @@ export const JobsFeedPage = () => {
                       {selectedJob.salary ? ` · ${selectedJob.salary}` : ""}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button onClick={handleResearchCompany} style={{ padding: "7px 14px", borderRadius: 6, border: `1px solid ${COLORS.border}`, background: COLORS.card, fontSize: 13, color: COLORS.brand, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                      <Icon name="search" size={13} color={COLORS.brand} /> Research
+                    </button>
+                    <button onClick={handleBenchmarkSalary} style={{ padding: "7px 14px", borderRadius: 6, border: `1px solid ${COLORS.border}`, background: COLORS.card, fontSize: 13, color: COLORS.brand, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                      <Icon name="bar-chart-2" size={13} color={COLORS.brand} /> Benchmark
+                    </button>
                     <button style={{ padding: "7px 14px", borderRadius: 6, border: `1px solid ${COLORS.border}`, background: COLORS.card, fontSize: 13, color: COLORS.textMuted, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
                       <Icon name="star" size={13} color={COLORS.textMuted} /> Save
                     </button>
@@ -437,9 +480,93 @@ export const JobsFeedPage = () => {
         </Card>
       </div>
 
+      {/* Modals */}
+      {showCompanyModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <Card style={{ width: 500, maxWidth: "90%", padding: 24, position: "relative" }}>
+            <button onClick={() => setShowCompanyModal(false)} style={{ position: "absolute", top: 16, right: 16, background: "transparent", border: "none", cursor: "pointer" }}>
+              <Icon name="x" size={18} color={COLORS.textMuted} />
+            </button>
+            <h2 style={{ fontSize: 18, margin: "0 0 16px" }}>Company Research</h2>
+            {loadingCompany ? (
+              <div style={{ padding: "20px 0", textAlign: "center", color: COLORS.textMuted }}>
+                <Icon name="loader" size={24} style={{ animation: "spin 1s linear infinite" }} />
+                <p style={{ marginTop: 12, fontSize: 14 }}>Analyzing {selectedJob?.company}...</p>
+              </div>
+            ) : companyResearch ? (
+              <div>
+                <h3 style={{ fontSize: 16, margin: "0 0 8px", color: COLORS.brand }}>{companyResearch.companyName}</h3>
+                <p style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.5, marginBottom: 16 }}>{companyResearch.cultureSummary}</p>
+                <div style={{ marginBottom: 16 }}>
+                  <strong style={{ fontSize: 13, color: COLORS.textMuted }}>Interview Process:</strong>
+                  <p style={{ fontSize: 14, margin: "4px 0 0" }}>{companyResearch.interviewProcess}</p>
+                </div>
+                <div style={{ display: "flex", gap: 20 }}>
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: 13, color: COLORS.success }}>Pros:</strong>
+                    <ul style={{ margin: "4px 0 0", paddingLeft: 20, fontSize: 13, color: COLORS.text }}>
+                      {companyResearch.pros.map((p, i) => <li key={i}>{p}</li>)}
+                    </ul>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: 13, color: COLORS.warning }}>Cons:</strong>
+                    <ul style={{ margin: "4px 0 0", paddingLeft: 20, fontSize: 13, color: COLORS.text }}>
+                      {companyResearch.cons.map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+        </div>
+      )}
+
+      {showSalaryModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <Card style={{ width: 450, maxWidth: "90%", padding: 24, position: "relative" }}>
+            <button onClick={() => setShowSalaryModal(false)} style={{ position: "absolute", top: 16, right: 16, background: "transparent", border: "none", cursor: "pointer" }}>
+              <Icon name="x" size={18} color={COLORS.textMuted} />
+            </button>
+            <h2 style={{ fontSize: 18, margin: "0 0 16px" }}>Salary Benchmark</h2>
+            {loadingSalary ? (
+              <div style={{ padding: "20px 0", textAlign: "center", color: COLORS.textMuted }}>
+                <Icon name="loader" size={24} style={{ animation: "spin 1s linear infinite" }} />
+                <p style={{ marginTop: 12, fontSize: 14 }}>Calculating market rate...</p>
+              </div>
+            ) : salaryBenchmark ? (
+              <div>
+                <p style={{ fontSize: 14, color: COLORS.textMuted, marginBottom: 20 }}>
+                  Role: <strong>{selectedJob?.title}</strong><br />
+                  Location: <strong>{selectedJob?.location}</strong>
+                </p>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24, padding: "16px", background: COLORS.bg, borderRadius: 8 }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: COLORS.textMuted }}>Minimum</div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: COLORS.text }}>{salaryBenchmark.minLpa} LPA</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: COLORS.textMuted }}>Median</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: COLORS.brand }}>{salaryBenchmark.midLpa} LPA</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: COLORS.textMuted }}>Maximum</div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: COLORS.text }}>{salaryBenchmark.maxLpa} LPA</div>
+                  </div>
+                </div>
+                <p style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.5, marginBottom: 12 }}>{salaryBenchmark.summary}</p>
+                <div style={{ fontSize: 12, color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
+                  <Icon name="info" size={12} /> Confidence: <strong>{salaryBenchmark.confidence}</strong>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+        </div>
+      )}
+
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
 };
+
