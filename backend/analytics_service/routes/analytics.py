@@ -239,3 +239,55 @@ async def get_weekly_trends(
             for week, count in sorted(weekly_counts.items())
         ]
     }
+
+
+@router.get("/dashboard")
+async def get_dashboard_stats(
+    db: FirestoreClient = Depends(get_db),
+):
+    """
+    Aggregated dashboard stats consumed by the Next.js DashboardPage.
+
+    Unlike other analytics endpoints this does NOT require a user_id query param —
+    the JWT dependency (added in a later sprint) will scope data per user.
+    For now it returns global aggregates so the frontend renders real numbers.
+
+    Response shape:
+        {
+          "totalApplications": int,
+          "scheduledInterviews": int,
+          "avgAtsScore": float | null,
+          "offerRate": float | null
+        }
+    """
+    try:
+        # Pull all applications from Firestore
+        apps = [d.to_dict() for d in db.collection("applications").stream()]
+
+        total = len(apps)
+
+        # Count applications where stage == "interviewing" as scheduled interviews
+        interviews = sum(1 for a in apps if a.get("stage") == "interviewing")
+
+        # Offer rate = offer / total * 100
+        offers = sum(1 for a in apps if a.get("stage") == "offer")
+        offer_rate = round(offers / total * 100, 1) if total > 0 else None
+
+        # Average ATS score (from matchScore field if stored on applications)
+        scores = [a["matchScore"] for a in apps if a.get("matchScore") is not None]
+        avg_ats = round(sum(scores) / len(scores), 1) if scores else None
+
+        return {
+            "totalApplications": total,
+            "scheduledInterviews": interviews,
+            "avgAtsScore": avg_ats,
+            "offerRate": offer_rate,
+        }
+    except Exception:
+        # Firestore unavailable — return safe zeros so the UI still loads
+        return {
+            "totalApplications": 0,
+            "scheduledInterviews": 0,
+            "avgAtsScore": None,
+            "offerRate": None,
+        }
